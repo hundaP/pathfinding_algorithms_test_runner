@@ -36,8 +36,8 @@ if (isMainThread) {
     }
 
     async function runTest(numMazes) {
-        const numRows = 750;
-        const numCols = 750;
+        const numRows = 30;
+        const numCols = 30;
         const metricsSPOn = {
             dijkstra: { time: [], visitedNodes: [], visitedPercentage: [], pathLength: [], memoryUsed: [] },
             astar: { time: [], visitedNodes: [], visitedPercentage: [], pathLength: [], memoryUsed: [] },
@@ -57,11 +57,12 @@ if (isMainThread) {
         for (let i = 0; i < numMazes; i++) {
             const { griddijkstra, gridastar, gridbfs, griddfs, gridwallFollower, griddijkstraStartNode, griddijkstraEndNode, gridastarStartNode, gridastarEndNode, gridbfsStartNode, gridbfsEndNode, griddfsStartNode, griddfsEndNode, gridwallFollowerStartNode, gridwallFollowerEndNode } = getInitialGrid(numRows, numCols, true);
 
-            const algorithms = ['astar', 'bfs', 'dfs', 'wallFollower'];
+            const algorithms = ['dijkstra', 'astar', 'bfs', 'dfs', 'wallFollower'];
+            //const algorithms = ['astar', 'bfs', 'dfs', 'wallFollower'];
             const promises = [];
 
             const grids = {
-                //dijkstra: griddijkstra,
+                dijkstra: griddijkstra,
                 astar: gridastar,
                 bfs: gridbfs,
                 dfs: griddfs,
@@ -69,7 +70,7 @@ if (isMainThread) {
             };
 
             const startNodes = {
-                //dijkstra: griddijkstraStartNode,
+                dijkstra: griddijkstraStartNode,
                 astar: gridastarStartNode,
                 bfs: gridbfsStartNode,
                 dfs: griddfsStartNode,
@@ -77,7 +78,7 @@ if (isMainThread) {
             };
 
             const endNodes = {
-                //dijkstra: griddijkstraEndNode,
+                dijkstra: griddijkstraEndNode,
                 astar: gridastarEndNode,
                 bfs: gridbfsEndNode,
                 dfs: griddfsEndNode,
@@ -110,11 +111,12 @@ if (isMainThread) {
         for (let i = 0; i < numMazes; i++) {
             const { griddijkstra, gridastar, gridbfs, griddfs, gridwallFollower, griddijkstraStartNode, griddijkstraEndNode, gridastarStartNode, gridastarEndNode, gridbfsStartNode, gridbfsEndNode, griddfsStartNode, griddfsEndNode, gridwallFollowerStartNode, gridwallFollowerEndNode } = getInitialGrid(numRows, numCols, false);
 
-            const algorithms = ['astar', 'bfs', 'dfs', 'wallFollower'];
+            const algorithms = ['dijkstra', 'astar', 'bfs', 'dfs', 'wallFollower'];
+            //const algorithms = ['astar', 'bfs', 'dfs', 'wallFollower'];
             const promises = [];
 
             const grids = {
-                //dijkstra: griddijkstra,
+                dijkstra: griddijkstra,
                 astar: gridastar,
                 bfs: gridbfs,
                 dfs: griddfs,
@@ -122,7 +124,7 @@ if (isMainThread) {
             };
 
             const startNodes = {
-                //dijkstra: griddijkstraStartNode,
+                dijkstra: griddijkstraStartNode,
                 astar: gridastarStartNode,
                 bfs: gridbfsStartNode,
                 dfs: griddfsStartNode,
@@ -130,7 +132,7 @@ if (isMainThread) {
             };
 
             const endNodes = {
-                //dijkstra: griddijkstraEndNode,
+                dijkstra: griddijkstraEndNode,
                 astar: gridastarEndNode,
                 bfs: gridbfsEndNode,
                 dfs: griddfsEndNode,
@@ -259,7 +261,7 @@ if (isMainThread) {
         };
     };
 
-    runTest(5)
+    runTest(20)
         .catch(error => {
             console.error(error);
         });
