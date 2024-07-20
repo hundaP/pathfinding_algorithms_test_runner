@@ -34,9 +34,9 @@ if (isMainThread) {
         });
     }
 
-    async function runTest(numMazes) {
-        const numRows = 30;
-        const numCols = 30;
+    async function runTest(mazeSize, numMazes) {
+        const numRows = mazeSize;
+        const numCols = mazeSize;
         const metricsSPOn = {
             dijkstra: { time: [], visitedNodes: [], visitedPercentage: [], pathLength: [], memoryUsed: [] },
             astar: { time: [], visitedNodes: [], visitedPercentage: [], pathLength: [], memoryUsed: [] },
@@ -165,7 +165,7 @@ if (isMainThread) {
         const averagesSPOff = calculateAverages(metricsSPOff);
 
         // Write results to a .csv file
-        writeResultsToCsv('./averages.csv', averagesSPOn, averagesSPOff);
+        writeResultsToCsv(`./data/averages${numRows}x${numCols}.csv`, averagesSPOn, averagesSPOff);
     }
 
     function calculateAverages(metrics) {
@@ -260,11 +260,15 @@ if (isMainThread) {
         };
     };
 
-    runTest(20)
+    const mazeSize = process.argv[2];
+    const numTests = process.argv[3];
+
+    runTest(mazeSize, numTests)
         .catch(error => {
             console.error(error);
         });
-} else {
+}
+else {
     // This code will be executed in the worker thread
     const { algorithm, grid, startNode, endNode } = workerData;
     const startTime = performance.now();
