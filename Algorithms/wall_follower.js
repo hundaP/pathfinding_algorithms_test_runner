@@ -5,6 +5,7 @@ export function wallFollower(grid, startNode, endNode) {
     let previousNode = null;
     while (currentNode !== endNode) {
         currentNode.isVisited = true;
+        currentNode.noOfVisits = (currentNode.noOfVisits || 0) + 1; // increment visit count
         visitedNodesInOrder.push(currentNode);
         const neighbors = getUnvisitedNeighbors(currentNode, grid);
         let nextNode = null;

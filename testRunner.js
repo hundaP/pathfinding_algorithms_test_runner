@@ -1,4 +1,3 @@
-import path from 'path';
 import fs from 'fs';
 import { Worker, isMainThread, parentPort, workerData } from 'worker_threads';
 import { generateMaze } from './Algorithms/mazeGenerator.js';
