@@ -103,7 +103,7 @@ if (isMainThread) {
             });
 
             await Promise.all(promises);
-            console.log(`Completed test ${i + 1} of ${numMazes} for mazes with a single path`);
+            console.log(`Completed test ${i + 1} of ${numMazes} for mazes with a single path, for size: ${mazeSize}`);
         }
 
         // Test mazes with multiple paths
@@ -157,7 +157,7 @@ if (isMainThread) {
             });
 
             await Promise.all(promises);
-            console.log(`Completed test ${i + 1} of ${numMazes} for mazes with multiple paths`);
+            console.log(`Completed test ${i + 1} of ${numMazes} for mazes with multiple paths, for size: ${mazeSize}`);
 
         }
         // Calculate averages and log results
@@ -165,7 +165,7 @@ if (isMainThread) {
         const averagesSPOff = calculateAverages(metricsSPOff);
 
         // Write results to a .csv file
-        writeResultsToCsv(`./data/averages${numRows}x${numCols}.csv`, averagesSPOn, averagesSPOff);
+        writeResultsToCsv(`./data/averages${numRows}x${numCols}x${numMazes}.csv`, averagesSPOn, averagesSPOff);
     }
 
     function calculateAverages(metrics) {
@@ -262,11 +262,24 @@ if (isMainThread) {
 
     const mazeSize = process.argv[2];
     const numTests = process.argv[3];
-
-    runTest(mazeSize, numTests)
-        .catch(error => {
-            console.error(error);
-        });
+if (mazeSize === undefined || numTests === undefined) {
+        let size = 825;
+        while (true) {
+            try {
+                console.log(`Running tests with maze size ${size}`);
+                await runTest(size, 10);
+                size += 25;
+            } catch (error) {
+                console.error(`Test failed for maze size ${size}: ${error.message}`);
+                break;
+            }
+        }
+    } else {
+        runTest(parseInt(mazeSize), parseInt(numTests))
+            .catch(error => {
+                console.error(error);
+            });
+    }
 }
 else {
     // This code will be executed in the worker thread
