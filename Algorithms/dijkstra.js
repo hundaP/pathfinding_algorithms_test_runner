@@ -1,7 +1,7 @@
 export function dijkstra(grid, startNode, endNode) {
     class PriorityQueue {
-        constructor(comparator = (a, b) => a.distance - b.distance) {
-            this.heap = [null]; // We store keys starting from index 1 for easier math in the `bubbleUp` and `sinkDown` methods.
+        constructor(comparator = (a, b) => a.f - b.f) {
+            this.heap = [null];
             this.comparator = comparator;
         }
 
@@ -47,7 +47,6 @@ export function dijkstra(grid, startNode, endNode) {
             if (index === -1) return;
             this.heap[index].distance = newDistance;
             this.bubbleUp();
-            this.sinkDown();
         }
 
         contains(node) {
@@ -58,6 +57,7 @@ export function dijkstra(grid, startNode, endNode) {
             return this.heap.length === 1;
         }
     }
+
 
     const visitedNodesInOrder = [];
     startNode.distance = 0;

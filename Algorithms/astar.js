@@ -1,18 +1,22 @@
 export function astar(grid, startNode, endNode) {
     class PriorityQueue {
-        constructor(comparator = (a, b) => a.distance - b.distance) {
-            this.heap = [null]; // We store keys starting from index 1 for easier math in the `bubbleUp` and `sinkDown` methods.
+        constructor(comparator = (a, b) => a.f - b.f) {
+            this.heap = [null];
             this.comparator = comparator;
+            this.nodeIndices = new Map();
         }
 
         enqueue(node) {
             this.heap.push(node);
+            this.nodeIndices.set(node, this.heap.length - 1);
             this.bubbleUp();
         }
 
         dequeue() {
             const min = this.heap[1];
+            this.nodeIndices.delete(min);
             this.heap[1] = this.heap[this.heap.length - 1];
+            this.nodeIndices.set(this.heap[1], 1);
             this.heap.pop();
             this.sinkDown();
             return min;
@@ -21,6 +25,8 @@ export function astar(grid, startNode, endNode) {
         bubbleUp() {
             let index = this.heap.length - 1;
             while (index > 1 && this.comparator(this.heap[Math.floor(index / 2)], this.heap[index]) > 0) {
+                this.nodeIndices.set(this.heap[Math.floor(index / 2)], index);
+                this.nodeIndices.set(this.heap[index], Math.floor(index / 2));
                 [this.heap[Math.floor(index / 2)], this.heap[index]] = [this.heap[index], this.heap[Math.floor(index / 2)]];
                 index = Math.floor(index / 2);
             }
@@ -34,6 +40,8 @@ export function astar(grid, startNode, endNode) {
                     smallerIndex = index * 2 + 1;
                 }
                 if (this.comparator(this.heap[smallerIndex], this.heap[index]) < 0) {
+                    this.nodeIndices.set(this.heap[smallerIndex], index);
+                    this.nodeIndices.set(this.heap[index], smallerIndex);
                     [this.heap[smallerIndex], this.heap[index]] = [this.heap[index], this.heap[smallerIndex]];
                     index = smallerIndex;
                 } else {
@@ -43,15 +51,14 @@ export function astar(grid, startNode, endNode) {
         }
 
         decreaseKey(node, newDistance) {
-            let index = this.heap.findIndex((element) => element === node);
-            if (index === -1) return;
+            let index = this.nodeIndices.get(node);
+            if (index === undefined) return;
             this.heap[index].distance = newDistance;
             this.bubbleUp();
-            this.sinkDown();
         }
 
         contains(node) {
-            return this.heap.includes(node);
+            return this.nodeIndices.has(node);
         }
 
         isEmpty() {

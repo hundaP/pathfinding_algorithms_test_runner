@@ -267,7 +267,7 @@ if (isMainThread) {
 
     const mazeSize = process.argv[2];
     const numTests = process.argv[3];
-if (mazeSize === undefined || numTests === undefined) {
+    if (mazeSize === undefined || numTests === undefined) {
         let size = 825;
         while (true) {
             try {
