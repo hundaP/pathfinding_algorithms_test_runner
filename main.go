@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -31,24 +32,28 @@ var algorithmsMap = map[string]algorithms.Algorithm{
 }
 
 func main() {
-	if len(os.Args) < 3 {
-		runTestsWithIncreasingSize()
+	nFlag := flag.String("n", "", "Optional filename marker")
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) < 2 {
+		runTestsWithIncreasingSize(*nFlag)
 	} else {
-		mazeSize, _ := strconv.Atoi(os.Args[1])
-		numTests, _ := strconv.Atoi(os.Args[2])
+		mazeSize, _ := strconv.Atoi(args[0])
+		numTests, _ := strconv.Atoi(args[1])
 		var marker string
-		if len(os.Args) > 3 {
-			marker = os.Args[3]
+		if len(args) > 2 {
+			marker = args[2]
 		}
 		runTest(mazeSize, numTests, marker)
 	}
 }
 
-func runTestsWithIncreasingSize() {
+func runTestsWithIncreasingSize(marker string) {
 	size := 725
 	for {
 		fmt.Printf("Running tests with maze size %d\n", size)
-		err := runTest(size, 10, "")
+		err := runTest(size, 10, marker)
 		if err != nil {
 			fmt.Printf("Test failed for maze size %d: %s\n", size, err.Error())
 			break
