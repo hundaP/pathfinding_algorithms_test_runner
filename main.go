@@ -36,7 +36,11 @@ func main() {
 	} else {
 		mazeSize, _ := strconv.Atoi(os.Args[1])
 		numTests, _ := strconv.Atoi(os.Args[2])
-		runTest(mazeSize, numTests)
+		var marker string
+		if len(os.Args) > 3 {
+			marker = os.Args[3]
+		}
+		runTest(mazeSize, numTests, marker)
 	}
 }
 
@@ -44,7 +48,7 @@ func runTestsWithIncreasingSize() {
 	size := 725
 	for {
 		fmt.Printf("Running tests with maze size %d\n", size)
-		err := runTest(size, 10)
+		err := runTest(size, 10, "")
 		if err != nil {
 			fmt.Printf("Test failed for maze size %d: %s\n", size, err.Error())
 			break
@@ -53,7 +57,7 @@ func runTestsWithIncreasingSize() {
 	}
 }
 
-func runTest(mazeSize, numTests int) error {
+func runTest(mazeSize, numTests int, marker string) error {
 	numRows := mazeSize
 	numCols := mazeSize
 	metricsSPOn := initializeMetrics()
@@ -72,6 +76,7 @@ func runTest(mazeSize, numTests int) error {
 		}
 		wg.Wait()
 		fmt.Printf("Completed test %d of %d for mazes with a single path, for size: %d\n", i+1, numTests, mazeSize)
+		clearMemory(grids, startNodes, endNodes)
 	}
 
 	// Test mazes with multiple paths
@@ -87,12 +92,17 @@ func runTest(mazeSize, numTests int) error {
 		}
 		wg.Wait()
 		fmt.Printf("Completed test %d of %d for mazes with multiple paths, for size: %d\n", i+1, numTests, mazeSize)
-		runtime.GC()
+		clearMemory(grids, startNodes, endNodes)
 	}
 
 	averagesSPOn := calculateAverages(metricsSPOn)
 	averagesSPOff := calculateAverages(metricsSPOff)
-	writeResultsToCsv(fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows, numCols, numTests), averagesSPOn, averagesSPOff)
+
+	filename := fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows, numCols, numTests)
+	if marker != "" {
+		filename = fmt.Sprintf("./data/averages%dx%dx%dx%s.csv", numRows, numCols, numTests, marker)
+	}
+	writeResultsToCsv(filename, averagesSPOn, averagesSPOff)
 
 	return nil
 }
@@ -107,20 +117,17 @@ func initializeMetrics() map[string]*Metrics {
 	}
 }
 
-func runAlgorithm(algorithm string, grid [][]maze.Node, startNode maze.Node, endNode maze.Node, metrics map[string]*Metrics) {
+func runAlgorithm(algorithm string, grid [][]maze.Node, startNode *maze.Node, endNode *maze.Node, metrics map[string]*Metrics) {
 	startTime := time.Now()
 	initialMemoryUsage := runtime.MemStats{}
 	runtime.ReadMemStats(&initialMemoryUsage)
-	visitedNodesInOrder := algorithmsMap[algorithm].FindPath(grid, &startNode, &endNode)
+	visitedNodesInOrder := algorithmsMap[algorithm].FindPath(grid, startNode, endNode)
 
 	finalMemoryUsage := runtime.MemStats{}
 	runtime.ReadMemStats(&finalMemoryUsage)
 	endTime := time.Now()
-	nodesInShortestPathOrder := getNodesInShortestPathOrder(&endNode)
-
-	fmt.Println(len(nodesInShortestPathOrder))
-
-	timeTaken := endTime.Sub(startTime).Milliseconds() // Convert to milliseconds
+	nodesInShortestPathOrder := getNodesInShortestPathOrder(endNode)
+	timeTaken := endTime.Sub(startTime).Nanoseconds() // Convert to nanoseconds
 
 	memoryUsed := float64(finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc) / (1024 * 1024) // Convert to MB
 
@@ -195,38 +202,44 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	header := []string{"Algorithm", "SinglePath", "Time", "VisitedNodes", "VisitedPercentage", "PathLength", "MemoryUsed"}
+	header := []string{"Algorithm", "SinglePath", "Time [ms]", "VisitedNodes", "VisitedPercentage [%]", "PathLength", "MemoryUsed [MB]"}
 	if err := writer.Write(header); err != nil {
 		log.Fatalf("Failed to write header: %s", err)
 	}
 
-	for algorithm, metrics := range averagesSPOn {
-		row := []string{
-			algorithm,
-			"true",
-			fmt.Sprintf("%.4f", metrics["time"]),
-			fmt.Sprintf("%.0f", metrics["visitedNodes"]),
-			fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
-			fmt.Sprintf("%.0f", metrics["pathLength"]),
-			fmt.Sprintf("%.2f", metrics["memoryUsed"]),
-		}
-		if err := writer.Write(row); err != nil {
-			log.Fatalf("Failed to write row for %s: %s", algorithm, err)
+	algorithmOrder := []string{"dijkstra", "astar", "bfs", "dfs", "wallFollower"}
+
+	for _, algorithm := range algorithmOrder {
+		if metrics, exists := averagesSPOn[algorithm]; exists {
+			row := []string{
+				algorithm,
+				"true",
+				fmt.Sprintf("%.3f", metrics["time"]/1e6), // Convert to milliseconds with 3 decimal places
+				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
+				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
+				fmt.Sprintf("%.0f", metrics["pathLength"]),
+				fmt.Sprintf("%.2f", metrics["memoryUsed"]),
+			}
+			if err := writer.Write(row); err != nil {
+				log.Fatalf("Failed to write row for %s: %s", algorithm, err)
+			}
 		}
 	}
 
-	for algorithm, metrics := range averagesSPOff {
-		row := []string{
-			algorithm,
-			"false",
-			fmt.Sprintf("%.4f", metrics["time"]),
-			fmt.Sprintf("%.0f", metrics["visitedNodes"]),
-			fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
-			fmt.Sprintf("%.0f", metrics["pathLength"]),
-			fmt.Sprintf("%.2f", metrics["memoryUsed"]),
-		}
-		if err := writer.Write(row); err != nil {
-			log.Fatalf("Failed to write row for %s: %s", algorithm, err)
+	for _, algorithm := range algorithmOrder {
+		if metrics, exists := averagesSPOff[algorithm]; exists {
+			row := []string{
+				algorithm,
+				"false",
+				fmt.Sprintf("%.3f", metrics["time"]/1e6), // Convert to milliseconds with 3 decimal places
+				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
+				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
+				fmt.Sprintf("%.0f", metrics["pathLength"]),
+				fmt.Sprintf("%.2f", metrics["memoryUsed"]),
+			}
+			if err := writer.Write(row); err != nil {
+				log.Fatalf("Failed to write row for %s: %s", algorithm, err)
+			}
 		}
 	}
 
@@ -236,10 +249,10 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 	}
 }
 
-func getInitialGrid(numRows, numCols int, singlePath bool) (map[string][][]maze.Node, map[string]maze.Node, map[string]maze.Node) {
+func getInitialGrid(numRows, numCols int, singlePath bool) (map[string][][]maze.Node, map[string]*maze.Node, map[string]*maze.Node) {
 	grids := make(map[string][][]maze.Node)
-	startNodes := make(map[string]maze.Node)
-	endNodes := make(map[string]maze.Node)
+	startNodes := make(map[string]*maze.Node)
+	endNodes := make(map[string]*maze.Node)
 
 	mazeData := maze.GenerateMaze(numRows, numCols, singlePath)
 
@@ -249,17 +262,30 @@ func getInitialGrid(numRows, numCols int, singlePath bool) (map[string][][]maze.
 	grids["dfs"] = mazeData["gridDFS"].([][]maze.Node)
 	grids["wallFollower"] = mazeData["gridWallFollower"].([][]maze.Node)
 
-	startNodes["dijkstra"] = mazeData["gridDijkstraStartNode"].(maze.Node)
-	startNodes["astar"] = mazeData["gridAstarStartNode"].(maze.Node)
-	startNodes["bfs"] = mazeData["gridBFSStartNode"].(maze.Node)
-	startNodes["dfs"] = mazeData["gridDFSStartNode"].(maze.Node)
-	startNodes["wallFollower"] = mazeData["gridWallFollowerStartNode"].(maze.Node)
+	startNodes["dijkstra"] = mazeData["gridDijkstraStartNode"].(*maze.Node)
+	startNodes["astar"] = mazeData["gridAstarStartNode"].(*maze.Node)
+	startNodes["bfs"] = mazeData["gridBFSStartNode"].(*maze.Node)
+	startNodes["dfs"] = mazeData["gridDFSStartNode"].(*maze.Node)
+	startNodes["wallFollower"] = mazeData["gridWallFollowerStartNode"].(*maze.Node)
 
-	endNodes["dijkstra"] = mazeData["gridDijkstraEndNode"].(maze.Node)
-	endNodes["astar"] = mazeData["gridAstarEndNode"].(maze.Node)
-	endNodes["bfs"] = mazeData["gridBFSEndNode"].(maze.Node)
-	endNodes["dfs"] = mazeData["gridDFSEndNode"].(maze.Node)
-	endNodes["wallFollower"] = mazeData["gridWallFollowerEndNode"].(maze.Node)
+	endNodes["dijkstra"] = mazeData["gridDijkstraEndNode"].(*maze.Node)
+	endNodes["astar"] = mazeData["gridAstarEndNode"].(*maze.Node)
+	endNodes["bfs"] = mazeData["gridBFSEndNode"].(*maze.Node)
+	endNodes["dfs"] = mazeData["gridDFSEndNode"].(*maze.Node)
+	endNodes["wallFollower"] = mazeData["gridWallFollowerEndNode"].(*maze.Node)
 
 	return grids, startNodes, endNodes
+}
+
+func clearMemory(grids map[string][][]maze.Node, startNodes, endNodes map[string]*maze.Node) {
+	for k := range grids {
+		grids[k] = nil
+	}
+	for k := range startNodes {
+		startNodes[k] = nil
+	}
+	for k := range endNodes {
+		endNodes[k] = nil
+	}
+	runtime.GC()
 }

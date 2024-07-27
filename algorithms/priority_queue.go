@@ -58,10 +58,15 @@ func (pq *PriorityQueue) Update(node *maze.Node, newF float64) {
 }
 
 func (pq *PriorityQueue) Contains(node *maze.Node) bool {
-	_, exists := pq.nodeIndex[node]
-	return exists
+	index, exists := pq.nodeIndex[node]
+	return exists && index >= 0
 }
 
 func (pq *PriorityQueue) IsEmpty() bool {
 	return pq.Len() == 0
+}
+
+// Debugging: Method to retrieve nodes
+func (pq *PriorityQueue) Nodes() []*maze.Node {
+	return pq.items
 }
