@@ -170,7 +170,7 @@ if (isMainThread) {
         const averagesSPOff = calculateAverages(metricsSPOff);
 
         // Write results to a .csv file
-        writeResultsToCsv(`./data/averages${numRows}x${numCols}x${numMazes}.csv`, averagesSPOn, averagesSPOff);
+        writeResultsToCsv(`./data/averages${numRows}x${numCols}x${numMazes}xCODESPACE.csv`, averagesSPOn, averagesSPOff);
     }
 
     function calculateAverages(metrics) {
@@ -268,7 +268,7 @@ if (isMainThread) {
     const mazeSize = process.argv[2];
     const numTests = process.argv[3];
     if (mazeSize === undefined || numTests === undefined) {
-        let size = 825;
+        let size = 725;
         while (true) {
             try {
                 console.log(`Running tests with maze size ${size}`);

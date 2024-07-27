@@ -12,6 +12,19 @@ type Cell struct {
 	Visited bool
 }
 
+type Node struct {
+	X, Y         int
+	IsStart      bool
+	IsEnd        bool
+	Distance     float64
+	IsVisited    bool
+	IsWall       bool
+	PreviousNode *Node
+	GridId       int
+	NoOfVisits   int
+	H, F         float64
+}
+
 type Maze struct {
 	Width, Height int
 	Grid          [][]Cell
@@ -119,7 +132,21 @@ func (m *Maze) generateMazeNotGlobal() {
 	}
 }
 
-func GenerateMaze(numRows, numCols int, singlePath bool) *Maze {
+func createNode(x, y int, isWall bool, start, end *Cell, gridId int) Node {
+	return Node{
+		X:            x,
+		Y:            y,
+		IsStart:      start != nil && x == start.X && y == start.Y,
+		IsEnd:        end != nil && x == end.X && y == end.Y,
+		Distance:     math.Inf(1),
+		IsVisited:    false,
+		IsWall:       isWall,
+		PreviousNode: nil,
+		GridId:       gridId,
+	}
+}
+
+func GenerateMaze(numRows, numCols int, singlePath bool) map[string]interface{} {
 	s := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(s)
 	maze := NewMaze(numRows, numCols)
@@ -136,5 +163,33 @@ func GenerateMaze(numRows, numCols int, singlePath bool) *Maze {
 		}
 	}
 
-	return maze
+	grids := make(map[int][][]Node)
+	for i := 1; i <= 5; i++ {
+		grid := make([][]Node, len(maze.Grid))
+		for y, row := range maze.Grid {
+			grid[y] = make([]Node, len(row))
+			for x, cell := range row {
+				grid[y][x] = createNode(cell.X, cell.Y, cell.IsWall, maze.Start, maze.End, i)
+			}
+		}
+		grids[i] = grid
+	}
+
+	return map[string]interface{}{
+		"gridDijkstra":              grids[1],
+		"gridAstar":                 grids[2],
+		"gridBFS":                   grids[3],
+		"gridDFS":                   grids[4],
+		"gridWallFollower":          grids[5],
+		"gridDijkstraStartNode":     grids[1][maze.Start.Y][maze.Start.X],
+		"gridDijkstraEndNode":       grids[1][maze.End.Y][maze.End.X],
+		"gridAstarStartNode":        grids[2][maze.Start.Y][maze.Start.X],
+		"gridAstarEndNode":          grids[2][maze.End.Y][maze.End.X],
+		"gridBFSStartNode":          grids[3][maze.Start.Y][maze.Start.X],
+		"gridBFSEndNode":            grids[3][maze.End.Y][maze.End.X],
+		"gridDFSStartNode":          grids[4][maze.Start.Y][maze.Start.X],
+		"gridDFSEndNode":            grids[4][maze.End.Y][maze.End.X],
+		"gridWallFollowerStartNode": grids[5][maze.Start.Y][maze.Start.X],
+		"gridWallFollowerEndNode":   grids[5][maze.End.Y][maze.End.X],
+	}
 }
