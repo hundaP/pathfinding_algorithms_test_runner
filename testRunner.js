@@ -159,6 +159,11 @@ if (isMainThread) {
             await Promise.all(promises);
             console.log(`Completed test ${i + 1} of ${numMazes} for mazes with multiple paths, for size: ${mazeSize}`);
 
+            // Trigger garbage collection if available
+            if (global.gc) {
+                global.gc();
+            }
+
         }
         // Calculate averages and log results
         const averagesSPOn = calculateAverages(metricsSPOn);
