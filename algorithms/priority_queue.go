@@ -12,7 +12,7 @@ type PriorityQueue struct {
 
 func NewPriorityQueue() *PriorityQueue {
 	return &PriorityQueue{
-		items:     []*maze.Node{},
+		items:     make([]*maze.Node, 0, 100), // Preallocate with an estimated capacity
 		nodeIndex: make(map[*maze.Node]int),
 	}
 }
@@ -52,7 +52,7 @@ func (pq *PriorityQueue) Dequeue() *maze.Node {
 	return heap.Pop(pq).(*maze.Node)
 }
 
-func (pq *PriorityQueue) Update(node *maze.Node, newF float64) {
+func (pq *PriorityQueue) Update(node *maze.Node, newF float32) {
 	node.F = newF
 	heap.Fix(pq, pq.nodeIndex[node])
 }

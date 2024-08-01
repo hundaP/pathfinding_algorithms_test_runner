@@ -70,6 +70,7 @@ func main() {
 
 	// Stop CPU profiling and write memory profile
 	pprof.StopCPUProfile()
+	runtime.GC() // get up-to-date statistics
 	if err := pprof.WriteHeapProfile(memProfile); err != nil {
 		log.Fatal("could not write memory profile: ", err)
 	}
@@ -319,4 +320,5 @@ func clearMemory(grids map[string][][]maze.Node, startNodes, endNodes map[string
 	for k := range endNodes {
 		endNodes[k] = nil
 	}
+	runtime.GC()
 }

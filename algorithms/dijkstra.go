@@ -6,41 +6,37 @@ import (
 
 func DijkstraAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node {
 	openList := NewPriorityQueue()
-	closedList := make(map[*maze.Node]bool)
-	visitedNodesInOrder := []maze.Node{}
+	closedList := make(map[*maze.Node]struct{})
+	visitedNodesInOrder := make([]maze.Node, 0, len(grid)*len(grid[0])/2) // Preallocate slice with estimated capacity
 
 	startNode.Distance = 0
 	openList.Enqueue(startNode)
 
 	for !openList.IsEmpty() {
 		currentNode := openList.Dequeue()
-		closedList[currentNode] = true
+		closedList[currentNode] = struct{}{}
 		visitedNodesInOrder = append(visitedNodesInOrder, *currentNode)
 
 		if currentNode == endNode {
-			// Ensure end node is included and updated
-			endNode.PreviousNode = currentNode.PreviousNode
-			endNode.Distance = currentNode.Distance
-			visitedNodesInOrder = append(visitedNodesInOrder, *endNode)
 			return visitedNodesInOrder
 		}
 
-		neighbors := getUnvisitedNeighbors(currentNode, grid)
-		for _, neighbor := range neighbors {
-			if closedList[neighbor] || neighbor.IsWall {
+		for _, neighbor := range getUnvisitedNeighbors(currentNode, grid) {
+			if _, found := closedList[neighbor]; found || neighbor.IsWall {
 				continue
 			}
 
-			gScore := currentNode.Distance + 1
+			tentativeGScore := currentNode.Distance + 1
 
-			if !openList.Contains(neighbor) {
-				neighbor.Distance = gScore
+			if tentativeGScore < neighbor.Distance {
 				neighbor.PreviousNode = currentNode
-				openList.Enqueue(neighbor)
-			} else if gScore < neighbor.Distance {
-				neighbor.Distance = gScore
-				neighbor.PreviousNode = currentNode
-				openList.Update(neighbor, neighbor.Distance)
+				neighbor.Distance = tentativeGScore
+
+				if !openList.Contains(neighbor) {
+					openList.Enqueue(neighbor)
+				} else {
+					openList.Update(neighbor, neighbor.Distance)
+				}
 			}
 		}
 	}
