@@ -5,41 +5,49 @@ import (
 )
 
 func DijkstraAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node {
-	openList := NewPriorityQueue()
-	closedList := make(map[*maze.Node]struct{})
-	visitedNodesInOrder := make([]maze.Node, 0, len(grid)*len(grid[0])/2) // Preallocate slice with estimated capacity
+	rows, cols := len(grid), len(grid[0])
+	visitedNodes := make([]maze.Node, 0, rows*cols)
 
 	startNode.Distance = 0
-	openList.Enqueue(startNode)
+	unvisitedNodes := NewFibonacciHeap(rows * cols)
+	unvisitedNodes.Enqueue(startNode)
 
-	for !openList.IsEmpty() {
-		currentNode := openList.Dequeue()
-		closedList[currentNode] = struct{}{}
-		visitedNodesInOrder = append(visitedNodesInOrder, *currentNode)
+	for !unvisitedNodes.IsEmpty() {
+		closestNode := unvisitedNodes.Dequeue()
 
-		if currentNode == endNode {
-			return visitedNodesInOrder
+		if closestNode.IsWall || closestNode.IsVisited {
+			continue
 		}
 
-		for _, neighbor := range getUnvisitedNeighbors(currentNode, grid) {
-			if _, found := closedList[neighbor]; found || neighbor.IsWall {
-				continue
-			}
+		if closestNode == endNode {
+			visitedNodes = append(visitedNodes, *closestNode)
+			break
+		}
 
-			tentativeGScore := currentNode.Distance + 1
+		closestNode.IsVisited = true
+		visitedNodes = append(visitedNodes, *closestNode)
 
-			if tentativeGScore < neighbor.Distance {
-				neighbor.PreviousNode = currentNode
-				neighbor.Distance = tentativeGScore
+		updateUnvisitedNeighbors(closestNode, grid, unvisitedNodes)
+	}
 
-				if !openList.Contains(neighbor) {
-					openList.Enqueue(neighbor)
-				} else {
-					openList.Update(neighbor, neighbor.Distance)
-				}
+	return visitedNodes
+}
+
+func updateUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node, unvisitedNodes *FibonacciHeap) {
+	for _, neighbor := range getUnvisitedNeighbors(node, grid) {
+		if neighbor.IsWall || neighbor.IsVisited {
+			continue
+		}
+
+		newDistance := node.Distance + 1
+		if newDistance < neighbor.Distance {
+			neighbor.Distance = newDistance
+			neighbor.PreviousNode = node
+			if !unvisitedNodes.Contains(neighbor) {
+				unvisitedNodes.Enqueue(neighbor)
+			} else {
+				unvisitedNodes.Update(neighbor, newDistance)
 			}
 		}
 	}
-
-	return visitedNodesInOrder
 }

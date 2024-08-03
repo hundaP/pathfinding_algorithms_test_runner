@@ -1,72 +1,28 @@
 package algorithms
 
-import (
-	"container/heap"
-	"pathfinding_algorithms_test_runner/maze"
-)
+import "pathfinding_algorithms_test_runner/maze"
 
-type PriorityQueue struct {
-	items     []*maze.Node
-	nodeIndex map[*maze.Node]int
+type PriorityQueue []*maze.Node
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	return pq[i].F < pq[j].F
 }
 
-func NewPriorityQueue() *PriorityQueue {
-	return &PriorityQueue{
-		items:     make([]*maze.Node, 0, 100), // Preallocate with an estimated capacity
-		nodeIndex: make(map[*maze.Node]int),
-	}
-}
-
-func (pq *PriorityQueue) Len() int { return len(pq.items) }
-
-func (pq *PriorityQueue) Less(i, j int) bool {
-	return pq.items[i].F < pq.items[j].F
-}
-
-func (pq *PriorityQueue) Swap(i, j int) {
-	pq.nodeIndex[pq.items[i]] = j
-	pq.nodeIndex[pq.items[j]] = i
-	pq.items[i], pq.items[j] = pq.items[j], pq.items[i]
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
 	node := x.(*maze.Node)
-	pq.nodeIndex[node] = len(pq.items)
-	pq.items = append(pq.items, node)
+	*pq = append(*pq, node)
 }
 
 func (pq *PriorityQueue) Pop() interface{} {
-	old := pq.items
+	old := *pq
 	n := len(old)
 	node := old[n-1]
-	pq.nodeIndex[node] = -1
-	pq.items = old[0 : n-1]
+	*pq = old[0 : n-1]
 	return node
-}
-
-func (pq *PriorityQueue) Enqueue(node *maze.Node) {
-	heap.Push(pq, node)
-}
-
-func (pq *PriorityQueue) Dequeue() *maze.Node {
-	return heap.Pop(pq).(*maze.Node)
-}
-
-func (pq *PriorityQueue) Update(node *maze.Node, newF float32) {
-	node.F = newF
-	heap.Fix(pq, pq.nodeIndex[node])
-}
-
-func (pq *PriorityQueue) Contains(node *maze.Node) bool {
-	index, exists := pq.nodeIndex[node]
-	return exists && index >= 0
-}
-
-func (pq *PriorityQueue) IsEmpty() bool {
-	return pq.Len() == 0
-}
-
-// Debugging: Method to retrieve nodes
-func (pq *PriorityQueue) Nodes() []*maze.Node {
-	return pq.items
 }

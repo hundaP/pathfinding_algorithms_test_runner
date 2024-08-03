@@ -1,6 +1,7 @@
 package algorithms
 
 import (
+	"container/heap"
 	"math"
 	"pathfinding_algorithms_test_runner/maze"
 )
@@ -11,45 +12,76 @@ func heuristic(node, endNode *maze.Node) float32 {
 }
 
 func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node {
-	openList := NewPriorityQueue()
-	closedList := make(map[*maze.Node]struct{})
-	visitedNodesInOrder := make([]maze.Node, 0, len(grid)*len(grid[0])/2) // Preallocate slice with estimated capacity
+	openSet := &PriorityQueue{}
+	heap.Init(openSet)
+	heap.Push(openSet, startNode)
 
-	startNode.Distance = 0
+	rows, cols := uint16(len(grid)), uint16(len(grid[0]))
+	totalNodes := uint32(rows) * uint32(cols) // Correct calculation of totalNodes
+	cameFrom := make([]*maze.Node, totalNodes)
+	gScore := make([]float32, totalNodes)
+	for i := range gScore {
+		gScore[i] = math.MaxFloat32
+	}
+	startIndex := uint32(startNode.Y)*uint32(cols) + uint32(startNode.X)
+	gScore[startIndex] = 0
+
 	startNode.H = heuristic(startNode, endNode)
 	startNode.F = startNode.H
-	openList.Enqueue(startNode)
 
-	for !openList.IsEmpty() {
-		currentNode := openList.Dequeue()
-		closedList[currentNode] = struct{}{}
-		visitedNodesInOrder = append(visitedNodesInOrder, *currentNode)
+	visitedNodesInOrder := []maze.Node{}
+	closedSet := make([]bool, totalNodes)
 
-		if currentNode == endNode {
+	for openSet.Len() > 0 {
+		current := heap.Pop(openSet).(*maze.Node)
+		visitedNodesInOrder = append(visitedNodesInOrder, *current)
+
+		if current == endNode {
 			return visitedNodesInOrder
 		}
 
-		for _, neighbor := range getUnvisitedNeighbors(currentNode, grid) {
-			if _, found := closedList[neighbor]; found || neighbor.IsWall {
+		currentIndex := uint32(current.Y)*uint32(cols) + uint32(current.X)
+		closedSet[currentIndex] = true
+
+		for _, neighbor := range getUnvisitedNeighbors(current, grid) {
+			// Check if neighbor is within grid boundaries
+			if neighbor.Y >= rows || neighbor.X >= cols {
 				continue
 			}
 
-			tentativeGScore := currentNode.Distance + 1
+			neighborIndex := uint32(neighbor.Y)*uint32(cols) + uint32(neighbor.X)
+			if neighbor.IsWall || closedSet[neighborIndex] {
+				continue
+			}
 
-			if tentativeGScore < neighbor.Distance {
-				neighbor.PreviousNode = currentNode
-				neighbor.Distance = tentativeGScore
+			tentativeGScore := gScore[currentIndex] + 1
+
+			if tentativeGScore < gScore[neighborIndex] {
+				cameFrom[neighborIndex] = current
+				gScore[neighborIndex] = tentativeGScore
 				neighbor.H = heuristic(neighbor, endNode)
-				neighbor.F = neighbor.Distance + neighbor.H
+				neighbor.F = tentativeGScore + neighbor.H
+				neighbor.PreviousNode = current // Set the previous node
 
-				if !openList.Contains(neighbor) {
-					openList.Enqueue(neighbor)
+				// Only push the neighbor to the open set if it's not already in it
+				if !closedSet[neighborIndex] {
+					heap.Push(openSet, neighbor)
 				} else {
-					openList.Update(neighbor, neighbor.F)
+					// Update the position of the neighbor in the priority queue
+					heap.Fix(openSet, findIndex(openSet, neighbor))
 				}
 			}
 		}
 	}
 
 	return visitedNodesInOrder
+}
+
+func findIndex(pq *PriorityQueue, node *maze.Node) int {
+	for i, n := range *pq {
+		if n == node {
+			return i
+		}
+	}
+	return -1
 }

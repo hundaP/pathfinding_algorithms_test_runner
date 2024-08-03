@@ -16,7 +16,7 @@ type Node struct {
 	X, Y         uint16
 	IsStart      bool
 	IsEnd        bool
-	Distance     float32
+	Distance     uint32
 	IsVisited    bool
 	IsWall       bool
 	PreviousNode *Node
@@ -113,7 +113,6 @@ func (m *Maze) generateMazeNotGlobal() {
 
 	if nextCell != nil {
 		nextCell.Visited = true
-
 		m.Stack = append(m.Stack, m.CurrentCell)
 
 		wallX := (m.CurrentCell.X + nextCell.X) / 2
@@ -138,7 +137,7 @@ func createNode(x, y uint16, isWall bool, start, end *Cell, gridId uint8) Node {
 		Y:            y,
 		IsStart:      start != nil && x == start.X && y == start.Y,
 		IsEnd:        end != nil && x == end.X && y == end.Y,
-		Distance:     float32(math.Inf(1)),
+		Distance:     math.MaxUint32,
 		IsVisited:    false,
 		IsWall:       isWall,
 		PreviousNode: nil,
