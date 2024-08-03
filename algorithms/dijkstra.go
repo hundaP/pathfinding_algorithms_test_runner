@@ -1,6 +1,7 @@
 package algorithms
 
 import (
+	"container/heap"
 	"pathfinding_algorithms_test_runner/maze"
 )
 
@@ -9,11 +10,12 @@ func DijkstraAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze
 	visitedNodes := make([]maze.Node, 0, rows*cols)
 
 	startNode.Distance = 0
-	unvisitedNodes := NewFibonacciHeap(rows * cols)
-	unvisitedNodes.Enqueue(startNode)
+	unvisitedNodes := &PriorityQueue{useAstar: false}
+	heap.Init(unvisitedNodes)
+	heap.Push(unvisitedNodes, startNode)
 
-	for !unvisitedNodes.IsEmpty() {
-		closestNode := unvisitedNodes.Dequeue()
+	for unvisitedNodes.Len() > 0 {
+		closestNode := heap.Pop(unvisitedNodes).(*maze.Node)
 
 		if closestNode.IsWall || closestNode.IsVisited {
 			continue
@@ -33,7 +35,7 @@ func DijkstraAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze
 	return visitedNodes
 }
 
-func updateUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node, unvisitedNodes *FibonacciHeap) {
+func updateUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node, unvisitedNodes *PriorityQueue) {
 	for _, neighbor := range getUnvisitedNeighbors(node, grid) {
 		if neighbor.IsWall || neighbor.IsVisited {
 			continue
@@ -43,11 +45,20 @@ func updateUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node, unvisitedNode
 		if newDistance < neighbor.Distance {
 			neighbor.Distance = newDistance
 			neighbor.PreviousNode = node
-			if !unvisitedNodes.Contains(neighbor) {
-				unvisitedNodes.Enqueue(neighbor)
+			if !contains(unvisitedNodes, neighbor) {
+				heap.Push(unvisitedNodes, neighbor)
 			} else {
-				unvisitedNodes.Update(neighbor, newDistance)
+				unvisitedNodes.update(neighbor, newDistance)
 			}
 		}
 	}
+}
+
+func contains(pq *PriorityQueue, node *maze.Node) bool {
+	for _, n := range pq.nodes {
+		if n == node {
+			return true
+		}
+	}
+	return false
 }

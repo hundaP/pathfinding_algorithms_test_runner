@@ -1,28 +1,47 @@
 package algorithms
 
-import "pathfinding_algorithms_test_runner/maze"
+import (
+	"container/heap"
+	"pathfinding_algorithms_test_runner/maze"
+)
 
-type PriorityQueue []*maze.Node
+type PriorityQueue struct {
+	nodes    []*maze.Node
+	useAstar bool
+}
 
-func (pq PriorityQueue) Len() int { return len(pq) }
+func (pq PriorityQueue) Len() int { return len(pq.nodes) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].F < pq[j].F
+	if pq.useAstar {
+		return pq.nodes[i].F < pq.nodes[j].F
+	}
+	return pq.nodes[i].Distance < pq.nodes[j].Distance
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
-	pq[i], pq[j] = pq[j], pq[i]
+	pq.nodes[i], pq.nodes[j] = pq.nodes[j], pq.nodes[i]
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
 	node := x.(*maze.Node)
-	*pq = append(*pq, node)
+	pq.nodes = append(pq.nodes, node)
 }
 
 func (pq *PriorityQueue) Pop() interface{} {
-	old := *pq
+	old := pq.nodes
 	n := len(old)
 	node := old[n-1]
-	*pq = old[0 : n-1]
+	pq.nodes = old[0 : n-1]
 	return node
+}
+
+func (pq *PriorityQueue) update(node *maze.Node, distance uint32) {
+	for i, n := range pq.nodes {
+		if n == node {
+			pq.nodes[i].Distance = distance
+			heap.Fix(pq, i)
+			break
+		}
+	}
 }

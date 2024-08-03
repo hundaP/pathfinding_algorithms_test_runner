@@ -132,6 +132,22 @@ func (h *FibonacciHeap) link(y, x *FibonacciNode) {
 	y.Mark = false
 }
 
+func (h *FibonacciHeap) Update(node *maze.Node, newDistance uint32) {
+	fNode := h.NodeIndex[node]
+	if fNode == nil || newDistance >= node.Distance {
+		return
+	}
+	fNode.Node.Distance = newDistance
+	parent := fNode.Parent
+	if parent != nil && fNode.Node.Distance < parent.Node.Distance {
+		h.cut(fNode, parent)
+		h.cascadingCut(parent)
+	}
+	if fNode.Node.Distance < h.MinNode.Node.Distance {
+		h.MinNode = fNode
+	}
+}
+
 func (h *FibonacciHeap) cut(x, y *FibonacciNode) {
 	for i, child := range y.Children {
 		if child == x {
@@ -154,22 +170,6 @@ func (h *FibonacciHeap) cascadingCut(y *FibonacciNode) {
 			h.cut(y, z)
 			h.cascadingCut(z)
 		}
-	}
-}
-
-func (h *FibonacciHeap) Update(node *maze.Node, newDistance uint32) {
-	fNode := h.NodeIndex[node]
-	if fNode == nil || newDistance >= node.Distance {
-		return
-	}
-	fNode.Node.Distance = newDistance
-	parent := fNode.Parent
-	if parent != nil && fNode.Node.Distance < parent.Node.Distance {
-		h.cut(fNode, parent)
-		h.cascadingCut(parent)
-	}
-	if fNode.Node.Distance < h.MinNode.Node.Distance {
-		h.MinNode = fNode
 	}
 }
 

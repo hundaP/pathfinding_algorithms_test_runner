@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"pathfinding_algorithms_test_runner/algorithms" //"runtime/pprof"
+	"pathfinding_algorithms_test_runner/algorithms"
 	"pathfinding_algorithms_test_runner/maze"
 )
 
@@ -73,7 +73,6 @@ func main() {
 	if err := pprof.WriteHeapProfile(memProfile); err != nil {
 		log.Fatal("could not write memory profile: ", err)
 	}
-
 }
 
 func runTestsWithIncreasingSize(marker string) {
@@ -114,7 +113,7 @@ func runTest(mazeSize, numTests int, marker string) error {
 		}
 		wg.Wait()
 		fmt.Printf(
-			"Completed test %d of %d for mazes with a single path, for size: %d\n",
+			"Completed test %d of %d for mazes with a single path for size: %d\n",
 			i+1,
 			numTests,
 			mazeSize,
@@ -148,7 +147,6 @@ func runTest(mazeSize, numTests int, marker string) error {
 		)
 		clearMemory(grids, startNodes, endNodes)
 	}
-
 	averagesSPOn := calculateAverages(metricsSPOn)
 	averagesSPOff := calculateAverages(metricsSPOff)
 
@@ -179,19 +177,29 @@ func runAlgorithm(
 	metrics map[string]*Metrics,
 ) {
 	startTime := time.Now()
-	initialMemoryUsage := runtime.MemStats{}
+	var initialMemoryUsage runtime.MemStats
 	runtime.ReadMemStats(&initialMemoryUsage)
+
 	visitedNodesInOrder := algorithmsMap[algorithm].FindPath(grid, startNode, endNode)
 
-	finalMemoryUsage := runtime.MemStats{}
-	runtime.ReadMemStats(&finalMemoryUsage)
-	endTime := time.Now()
+	var midMemoryUsage runtime.MemStats
+	runtime.ReadMemStats(&midMemoryUsage)
+
 	nodesInShortestPathOrder := getNodesInShortestPathOrder(endNode)
+
+	var finalMemoryUsage runtime.MemStats
+	runtime.ReadMemStats(&finalMemoryUsage)
+
+	endTime := time.Now()
 	timeTaken := endTime.Sub(startTime).Nanoseconds() // Convert to nanoseconds
 
-	memoryUsed := float64(
-		finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc,
-	) / (1024 * 1024) // Convert to MB
+	// Check for overflow
+	var memoryUsed float64
+	if finalMemoryUsage.HeapAlloc >= initialMemoryUsage.HeapAlloc {
+		memoryUsed = float64(finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc) / (1024 * 1024) // Convert to MB
+	} else {
+		memoryUsed = 0 // or handle it in another appropriate way
+	}
 
 	totalNodes := len(grid) * len(grid[0])
 	wallNodes := countWallNodes(grid)
@@ -218,9 +226,15 @@ func getNodesInShortestPathOrder(endNode *maze.Node) []*maze.Node {
 	var nodesInShortestPathOrder []*maze.Node
 	currentNode := endNode
 	for currentNode != nil {
-		nodesInShortestPathOrder = append([]*maze.Node{currentNode}, nodesInShortestPathOrder...)
+		nodesInShortestPathOrder = append(nodesInShortestPathOrder, currentNode)
 		currentNode = currentNode.PreviousNode
 	}
+
+	// Reverse the slice
+	for i, j := 0, len(nodesInShortestPathOrder)-1; i < j; i, j = i+1, j-1 {
+		nodesInShortestPathOrder[i], nodesInShortestPathOrder[j] = nodesInShortestPathOrder[j], nodesInShortestPathOrder[i]
+	}
+
 	return nodesInShortestPathOrder
 }
 
@@ -293,10 +307,7 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 			row := []string{
 				algorithm,
 				"true",
-				fmt.Sprintf(
-					"%.3f",
-					metrics["time"]/1e6,
-				), // Convert to milliseconds with 3 decimal places
+				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
 				fmt.Sprintf("%.0f", metrics["pathLength"]),
@@ -313,10 +324,7 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 			row := []string{
 				algorithm,
 				"false",
-				fmt.Sprintf(
-					"%.3f",
-					metrics["time"]/1e6,
-				), // Convert to milliseconds with 3 decimal places
+				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
 				fmt.Sprintf("%.0f", metrics["pathLength"]),

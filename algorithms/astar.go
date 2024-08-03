@@ -12,7 +12,7 @@ func heuristic(node, endNode *maze.Node) float32 {
 }
 
 func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node {
-	openSet := &PriorityQueue{}
+	openSet := &PriorityQueue{useAstar: true}
 	heap.Init(openSet)
 	heap.Push(openSet, startNode)
 
@@ -78,7 +78,7 @@ func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.No
 }
 
 func findIndex(pq *PriorityQueue, node *maze.Node) int {
-	for i, n := range *pq {
+	for i, n := range pq.nodes {
 		if n == node {
 			return i
 		}
