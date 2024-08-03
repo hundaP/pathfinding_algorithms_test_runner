@@ -77,7 +77,7 @@ func main() {
 }
 
 func runTestsWithIncreasingSize(marker string) {
-	size := 1250
+	size := 25
 	for {
 		fmt.Printf("Running tests with maze size %d\n", size)
 		err := runTest(size, 10, marker)
