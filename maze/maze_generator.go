@@ -1,10 +1,8 @@
 package maze
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
-	"os"
 	"time"
 )
 
@@ -193,47 +191,4 @@ func GenerateMaze(numRows, numCols int, singlePath bool) map[string]interface{} 
 		"gridWallFollowerStartNode": &grids[5][maze.Start.Y][maze.Start.X],
 		"gridWallFollowerEndNode":   &grids[5][maze.End.Y][maze.End.X],
 	}
-}
-
-func GenerateMazeHTML(maze *Maze, filename string) error {
-	html := "<!DOCTYPE html><html><head><style>"
-	html += "table { border-collapse: collapse; }"
-	html += "td { width: 20px; height: 20px; text-align: center; }"
-	html += ".wall { background-color: black; }"
-	html += ".path { background-color: white; }"
-	html += ".start { background-color: green; }"
-	html += ".end { background-color: red; }"
-	html += "</style></head><body><table>"
-
-	for y := 0; y < maze.Height; y++ {
-		html += "<tr>"
-		for x := 0; x < maze.Width; x++ {
-			cell := maze.Grid[y][x]
-			class := "path"
-			if cell.IsWall {
-				class = "wall"
-			} else if cell.X == maze.Start.X && cell.Y == maze.Start.Y {
-				class = "start"
-			} else if cell.X == maze.End.X && cell.Y == maze.End.Y {
-				class = "end"
-			}
-			html += fmt.Sprintf("<td class='%s'></td>", class)
-		}
-		html += "</tr>"
-	}
-
-	html += "</table></body></html>"
-
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = file.WriteString(html)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
