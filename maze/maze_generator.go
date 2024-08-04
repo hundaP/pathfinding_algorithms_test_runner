@@ -35,24 +35,38 @@ type Maze struct {
 }
 
 func NewMaze(width, height int) *Maze {
+	// Increase dimensions by 1 if they're even
+	if width%2 == 0 {
+		width++
+	}
+	if height%2 == 0 {
+		height++
+	}
+
 	m := &Maze{
-		Width:  width*2 + 1,
-		Height: height*2 + 1,
-		Grid:   make([][]Cell, height*2+1),
+		Width:  width,
+		Height: height,
+		Grid:   make([][]Cell, height),
 		Stack:  make([]*Cell, 0, (width*height)/2), // Preallocate stack with estimated capacity
 	}
 
-	for y := 0; y < m.Height; y++ {
-		m.Grid[y] = make([]Cell, m.Width)
-		for x := 0; x < m.Width; x++ {
-			isWall := x%2 == 0 || y%2 == 0
+	// Initialize the grid with walls and paths
+	for y := 0; y < height; y++ {
+		m.Grid[y] = make([]Cell, width)
+		for x := 0; x < width; x++ {
+			isWall := (x%2 == 0) || (y%2 == 0)
 			m.Grid[y][x] = Cell{X: uint16(x), Y: uint16(y), IsWall: isWall}
 		}
 	}
 
+	// Set start and end cells
 	m.CurrentCell = &m.Grid[1][1]
 	m.Start = &m.Grid[1][1]
-	m.End = &m.Grid[m.Height-2][m.Width-2]
+	m.End = &m.Grid[height-2][width-2]
+
+	// Ensure start and end cells are not walls
+	m.Grid[1][1].IsWall = false
+	m.Grid[height-2][width-2].IsWall = false
 
 	return m
 }
@@ -64,7 +78,7 @@ func (m *Maze) getCell(x, y int) *Cell {
 	return &m.Grid[y][x]
 }
 
-func (m *Maze) getNeighbors(cell *Cell) *Cell {
+func (m *Maze) getNeighbors(cell *Cell) []*Cell {
 	var neighbors []*Cell
 
 	top := m.getCell(int(cell.X), int(cell.Y)-2)
@@ -85,26 +99,7 @@ func (m *Maze) getNeighbors(cell *Cell) *Cell {
 		neighbors = append(neighbors, left)
 	}
 
-	if len(neighbors) > 0 {
-		if rand.Float64() < 0.75 {
-			return neighbors[rand.Intn(len(neighbors))]
-		}
-
-		var maxDistance float64
-		var farthestCell *Cell
-
-		for _, neighbor := range neighbors {
-			distance := math.Hypot(float64(neighbor.X-m.Start.X), float64(neighbor.Y-m.Start.Y))
-			if distance > maxDistance {
-				maxDistance = distance
-				farthestCell = neighbor
-			}
-		}
-
-		return farthestCell
-	}
-
-	return nil
+	return neighbors
 }
 
 func (m *Maze) generateMazeNotGlobal() {
@@ -112,14 +107,19 @@ func (m *Maze) generateMazeNotGlobal() {
 	nextCell := m.getNeighbors(m.CurrentCell)
 
 	if nextCell != nil {
-		nextCell.Visited = true
+		nextCellCell := nextCell[rand.Intn(len(nextCell))] // Choose a random neighbor
+		nextCellCell.Visited = true
 		m.Stack = append(m.Stack, m.CurrentCell)
 
-		wallX := (m.CurrentCell.X + nextCell.X) / 2
-		wallY := (m.CurrentCell.Y + nextCell.Y) / 2
-		m.Grid[wallY][wallX].IsWall = false
+		// Calculate the wall position correctly
+		wallX := (int(m.CurrentCell.X) + int(nextCellCell.X)) / 2
+		wallY := (int(m.CurrentCell.Y) + int(nextCellCell.Y)) / 2
 
-		m.CurrentCell = nextCell
+		if wallX >= 0 && wallX < m.Width && wallY >= 0 && wallY < m.Height {
+			m.Grid[wallY][wallX].IsWall = false
+		}
+
+		m.CurrentCell = nextCellCell
 	} else if len(m.Stack) > 0 {
 		if rand.Float64() < 0.4 {
 			backtrackCell := m.Stack[rand.Intn(len(m.Stack))]
@@ -148,21 +148,26 @@ func createNode(x, y uint16, isWall bool, start, end *Cell, gridId uint8) Node {
 func GenerateMaze(numRows, numCols int, singlePath bool) map[string]interface{} {
 	s := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(s)
-	maze := NewMaze(numRows, numCols)
+	maze := NewMaze(numCols, numRows) // Note: numCols is width, numRows is height
 
+	// Generate maze with the current implementation
 	for len(maze.Stack) > 0 || !maze.CurrentCell.Visited {
 		maze.generateMazeNotGlobal()
 	}
 
+	// Add extra paths if not single path
 	if !singlePath {
 		for i := 0; i < numRows*numCols/10; i++ {
-			x := r.Intn(numRows-2) + 1
-			y := r.Intn(numCols-2) + 1
-			maze.Grid[x][y].IsWall = false
+			x := r.Intn(numCols)
+			y := r.Intn(numRows)
+			if x > 0 && x < numCols-1 && y > 0 && y < numRows-1 {
+				maze.Grid[y][x].IsWall = false
+			}
 		}
 	}
 
-	grids := make(map[int][][]Node, 5) // Preallocate map with capacity 5
+	// Generate grids for different algorithms
+	grids := make(map[int][][]Node, 5)
 	for i := 1; i <= 5; i++ {
 		grid := make([][]Node, len(maze.Grid))
 		for y, row := range maze.Grid {
@@ -174,6 +179,7 @@ func GenerateMaze(numRows, numCols int, singlePath bool) map[string]interface{} 
 		grids[i] = grid
 	}
 
+	// Return maze data for different algorithms
 	return map[string]interface{}{
 		"gridDijkstra":              grids[1],
 		"gridAstar":                 grids[2],

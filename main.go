@@ -150,11 +150,20 @@ func runTest(mazeSize, numTests int, marker string) error {
 	averagesSPOn := calculateAverages(metricsSPOn)
 	averagesSPOff := calculateAverages(metricsSPOff)
 
-	filename := fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows, numCols, numTests)
-	if marker != "" {
-		filename = fmt.Sprintf("./data/averages%dx%dx%dx%s.csv", numRows, numCols, numTests, marker)
+	if numRows%2 != 0 || numCols%2 != 0 {
+		filename := fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows, numCols, numTests)
+		if marker != "" {
+			filename = fmt.Sprintf("./data/averages%dx%dx%dx%s.csv", numRows, numCols, numTests, marker)
+		}
+		writeResultsToCsv(filename, averagesSPOn, averagesSPOff)
+	} else {
+		fmt.Println("Sorry! Even mazes aren't supported, so the size was incremented by 1.")
+		filename := fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows+1, numCols+1, numTests)
+		if marker != "" {
+			filename = fmt.Sprintf("./data/averages%dx%dx%dx%s.csv", numRows+1, numCols+1, numTests, marker)
+		}
+		writeResultsToCsv(filename, averagesSPOn, averagesSPOff)
 	}
-	writeResultsToCsv(filename, averagesSPOn, averagesSPOff)
 
 	return nil
 }
