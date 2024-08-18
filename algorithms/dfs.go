@@ -2,6 +2,7 @@ package algorithms
 
 import (
 	"math"
+
 	"pathfinding_algorithms_test_runner/maze"
 )
 
@@ -32,6 +33,7 @@ func DFSAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node
 		for _, neighbor := range unvisitedNeighbors {
 			neighbor.Distance = currentNode.Distance + 1
 			neighbor.PreviousNode = currentNode
+			neighbor.PreviousID = currentNode.ID
 			stack = append(stack, neighbor)
 		}
 	}

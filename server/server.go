@@ -1,33 +1,196 @@
 package main
 
 import (
-	"log"
 	"net/http"
-	"pathfinding_algorithms_test_runner/algorithms"
-	"pathfinding_algorithms_test_runner/maze"
+	"path/filepath"
 	"runtime"
+	"strconv"
+	"sync"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	"pathfinding_algorithms_test_runner/algorithms"
+	"pathfinding_algorithms_test_runner/maze"
 )
 
 type Metrics struct {
-	Time              []float64
-	VisitedNodes      []int
-	VisitedPercentage []float64
-	PathLength        []int
-	MemoryUsed        []float64
+	SinglePath        bool      `json:"singlePath"`
+	Time              []float64 `json:"time"`
+	VisitedNodes      []int     `json:"visitedNodes"`
+	VisitedPercentage []float64 `json:"visitedPercentage"`
+	PathLength        []int     `json:"pathLength"`
+	MemoryUsed        []float64 `json:"memoryUsed"`
 }
 
-var algorithmsMap = map[string]algorithms.Algorithm{
-	"dijkstra":     algorithms.Dijkstra{},
-	"astar":        algorithms.Astar{},
-	"bfs":          algorithms.BFS{},
-	"dfs":          algorithms.DFS{},
-	"wallFollower": algorithms.WallFollower{},
+var (
+	algorithmsMap = map[string]algorithms.Algorithm{
+		"dijkstra":     algorithms.Dijkstra{},
+		"astar":        algorithms.Astar{},
+		"bfs":          algorithms.BFS{},
+		"dfs":          algorithms.DFS{},
+		"wallFollower": algorithms.WallFollower{},
+	}
+
+	grids      map[string][][]maze.Node
+	startNodes map[string]*maze.Node
+	endNodes   map[string]*maze.Node
+	metrics    map[string]*Metrics
+)
+
+func main() {
+	metrics = initializeMetrics()
+	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // Replace with your frontend URL
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
+
+	// Serve index.html
+	router.LoadHTMLFiles(filepath.Join("templates", "index.html"))
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", nil)
+	})
+
+	// Serve static files
+	router.Static("/static", "./static")
+
+	// Routes
+	router.GET("/api/maze", mazeHandler)
+	router.GET("/api/solution", solutionHandler)
+
+	router.Run("localhost:5000")
 }
 
-var MazeSize int = 14
+func mazeHandler(c *gin.Context) {
+	mazeSizeStr := c.Query("mazeSize")
+	singlePathStr := c.Query("singlePath")
+
+	if mazeSizeStr == "" {
+		mazeSizeStr = "50"
+	}
+	if singlePathStr == "" {
+		singlePathStr = "true"
+	}
+
+	mazeSize, err := strconv.Atoi(mazeSizeStr)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid mazeSize"})
+		return
+	}
+
+	singlePath, err := strconv.ParseBool(singlePathStr)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid singlePath"})
+		return
+	}
+
+	grids, startNodes, endNodes = getInitialGrid(mazeSize, mazeSize, singlePath)
+
+	c.JSON(200, gin.H{
+		"grids": map[string][][]maze.Node{
+			"dijkstra":     grids["dijkstra"],
+			"astar":        grids["astar"],
+			"bfs":          grids["bfs"],
+			"dfs":          grids["dfs"],
+			"wallFollower": grids["wallFollower"],
+		},
+		"startNodes": map[string]*maze.Node{
+			"dijkstra":     startNodes["dijkstra"],
+			"astar":        startNodes["astar"],
+			"bfs":          startNodes["bfs"],
+			"dfs":          startNodes["dfs"],
+			"wallFollower": startNodes["wallFollower"],
+		},
+		"endNodes": map[string]*maze.Node{
+			"dijkstra":     endNodes["dijkstra"],
+			"astar":        endNodes["astar"],
+			"bfs":          endNodes["bfs"],
+			"dfs":          endNodes["dfs"],
+			"wallFollower": endNodes["wallFollower"],
+		},
+	})
+}
+
+func getInitialGrid(
+	numRows, numCols int,
+	singlePath bool,
+) (map[string][][]maze.Node, map[string]*maze.Node, map[string]*maze.Node) {
+	grids := make(map[string][][]maze.Node)
+	startNodes := make(map[string]*maze.Node)
+	endNodes := make(map[string]*maze.Node)
+
+	mazeData := maze.GenerateMaze(numRows, numCols, singlePath)
+
+	grids["dijkstra"] = mazeData["gridDijkstra"].([][]maze.Node)
+	grids["astar"] = mazeData["gridAstar"].([][]maze.Node)
+	grids["bfs"] = mazeData["gridBFS"].([][]maze.Node)
+	grids["dfs"] = mazeData["gridDFS"].([][]maze.Node)
+	grids["wallFollower"] = mazeData["gridWallFollower"].([][]maze.Node)
+
+	startNodes["dijkstra"] = mazeData["gridDijkstraStartNode"].(*maze.Node)
+	startNodes["astar"] = mazeData["gridAstarStartNode"].(*maze.Node)
+	startNodes["bfs"] = mazeData["gridBFSStartNode"].(*maze.Node)
+	startNodes["dfs"] = mazeData["gridDFSStartNode"].(*maze.Node)
+	startNodes["wallFollower"] = mazeData["gridWallFollowerStartNode"].(*maze.Node)
+
+	endNodes["dijkstra"] = mazeData["gridDijkstraEndNode"].(*maze.Node)
+	endNodes["astar"] = mazeData["gridAstarEndNode"].(*maze.Node)
+	endNodes["bfs"] = mazeData["gridBFSEndNode"].(*maze.Node)
+	endNodes["dfs"] = mazeData["gridDFSEndNode"].(*maze.Node)
+	endNodes["wallFollower"] = mazeData["gridWallFollowerEndNode"].(*maze.Node)
+
+	return grids, startNodes, endNodes
+}
+
+func solutionHandler(c *gin.Context) {
+	var wg sync.WaitGroup
+	results := make(map[string]interface{})
+
+	for algorithm, alg := range algorithmsMap {
+		wg.Add(1)
+		go func(algorithm string, alg algorithms.Algorithm) {
+			defer wg.Done()
+			grid := grids[algorithm]
+			startNode := startNodes[algorithm]
+			endNode := endNodes[algorithm]
+
+			nodesInShortestPathOrder, visitedNodesInOrder := runAlgorithm(
+				algorithm,
+				grid,
+				startNode,
+				endNode,
+			)
+
+			// Marshal nodesInShortestPathOrder and visitedNodesInOrder to JSON
+			/*nodesInShortestPathOrderJSON, err := json.Marshal(nodesInShortestPathOrder)
+			if err != nil {
+				c.JSON(500, gin.H{"error": "Failed to marshal nodesInShortestPathOrder"})
+				return
+			}
+
+			visitedNodesInOrderJSON, err := json.Marshal(visitedNodesInOrder)
+			if err != nil {
+				c.JSON(500, gin.H{"error": "Failed to marshal visitedNodesInOrder"})
+				return
+			}*/
+
+			results[algorithm] = gin.H{
+				"visitedNodesInOrder":      visitedNodesInOrder,
+				"nodesInShortestPathOrder": nodesInShortestPathOrder,
+				"metrics":                  metrics[algorithm],
+			}
+		}(algorithm, alg)
+	}
+
+	wg.Wait()
+	// fmt.Println("Results: ", results)
+	c.JSON(200, results)
+}
 
 func initializeMetrics() map[string]*Metrics {
 	return map[string]*Metrics{
@@ -42,53 +205,101 @@ func initializeMetrics() map[string]*Metrics {
 func runAlgorithm(
 	algorithm string,
 	grid [][]maze.Node,
-	startNode, endNode *maze.Node,
-	metrics map[string]*Metrics,
-) {
+	startNode *maze.Node,
+	endNode *maze.Node,
+) ([]*maze.Node, []maze.Node) {
 	startTime := time.Now()
 	var initialMemoryUsage runtime.MemStats
 	runtime.ReadMemStats(&initialMemoryUsage)
 
-	visitedNodes := algorithmsMap[algorithm].FindPath(grid, startNode, endNode)
-	pathNodes := getShortestPath(endNode)
+	visitedNodesInOrder := algorithmsMap[algorithm].FindPath(grid, startNode, endNode)
+
+	var midMemoryUsage runtime.MemStats
+	runtime.ReadMemStats(&midMemoryUsage)
+
+	nodesInShortestPathOrder := getNodesInShortestPathOrder(endNode, grid)
 
 	var finalMemoryUsage runtime.MemStats
 	runtime.ReadMemStats(&finalMemoryUsage)
 
-	timeTaken := time.Since(startTime).Seconds() // Convert to seconds
+	endTime := time.Now()
+	timeTaken := endTime.Sub(startTime).Nanoseconds() // Convert to nanoseconds
 
-	memoryUsed := float64(finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc) / (1024 * 1024) // Convert to MB
+	// Check for overflow
+	var memoryUsed float64
+	if finalMemoryUsage.HeapAlloc >= initialMemoryUsage.HeapAlloc {
+		memoryUsed = float64(
+			finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc,
+		) / (1024 * 1024) // Convert to MB
+	} else {
+		memoryUsed = 0 // or handle it in another appropriate way
+	}
 
 	totalNodes := len(grid) * len(grid[0])
 	wallNodes := countWallNodes(grid)
 	nonWallNodes := totalNodes - wallNodes
-	visitedPercentage := (float64(len(visitedNodes)) / float64(nonWallNodes)) * 100
+	visitedPercentage := (float64(len(visitedNodesInOrder)) / float64(nonWallNodes)) * 100
 
-	metrics[algorithm].Time = append(metrics[algorithm].Time, timeTaken)
-	metrics[algorithm].VisitedNodes = append(metrics[algorithm].VisitedNodes, len(visitedNodes))
-	metrics[algorithm].VisitedPercentage = append(metrics[algorithm].VisitedPercentage, visitedPercentage)
-	metrics[algorithm].PathLength = append(metrics[algorithm].PathLength, len(pathNodes))
+	metrics[algorithm].Time = append(metrics[algorithm].Time, float64(timeTaken))
+	metrics[algorithm].VisitedNodes = append(
+		metrics[algorithm].VisitedNodes,
+		len(visitedNodesInOrder),
+	)
+	metrics[algorithm].VisitedPercentage = append(
+		metrics[algorithm].VisitedPercentage,
+		visitedPercentage,
+	)
+	metrics[algorithm].PathLength = append(
+		metrics[algorithm].PathLength,
+		len(nodesInShortestPathOrder),
+	)
 	metrics[algorithm].MemoryUsed = append(metrics[algorithm].MemoryUsed, memoryUsed)
 
-	// Debugging output
-	log.Printf("Algorithm: %s", algorithm)
-	log.Printf("Time Taken: %f seconds", timeTaken)
-	log.Printf("Memory Used: %f MB", memoryUsed)
-	log.Printf("Visited Nodes: %d", len(visitedNodes))
-	log.Printf("Visited Percentage: %f%%", visitedPercentage)
-	log.Printf("Path Length: %d", len(pathNodes))
+	// Log the metrics for debugging
+	// fmt.Printf("Metrics for algorithm %s: %+v\n", algorithm, metrics[algorithm])
+
+	return nodesInShortestPathOrder, visitedNodesInOrder
 }
 
-func getShortestPath(endNode *maze.Node) []*maze.Node {
-	var path []*maze.Node
-	for currentNode := endNode; currentNode != nil; currentNode = currentNode.PreviousNode {
-		path = append(path, currentNode)
+/* getNodesInShortestPathOrder with pointers
+func getNodesInShortestPathOrder(endNode *maze.Node) []*maze.Node {
+	var nodesInShortestPathOrder []*maze.Node
+	currentNode := endNode
+	for currentNode != nil {
+		nodesInShortestPathOrder = append(nodesInShortestPathOrder, currentNode)
+		currentNode = currentNode.PreviousNode
 	}
-	// Reverse path
-	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
-		path[i], path[j] = path[j], path[i]
+
+	// Reverse the slice
+	for i, j := 0, len(nodesInShortestPathOrder)-1; i < j; i, j = i+1, j-1 {
+		nodesInShortestPathOrder[i], nodesInShortestPathOrder[j] = nodesInShortestPathOrder[j], nodesInShortestPathOrder[i]
 	}
-	return path
+
+	return nodesInShortestPathOrder
+}*/
+
+// getNodesInShortestPathOrder with IDs
+func getNodesInShortestPathOrder(endNode *maze.Node, grid [][]maze.Node) []*maze.Node {
+	nodeMap := make(map[uint32]*maze.Node)
+	for _, row := range grid {
+		for _, node := range row {
+			nodeMap[node.ID] = &node
+		}
+	}
+
+	var nodesInShortestPathOrder []*maze.Node
+	currentNode := endNode
+	for currentNode != nil {
+		nodesInShortestPathOrder = append(nodesInShortestPathOrder, currentNode)
+		currentNode = nodeMap[currentNode.PreviousID]
+	}
+
+	// Reverse the slice
+	for i, j := 0, len(nodesInShortestPathOrder)-1; i < j; i, j = i+1, j-1 {
+		nodesInShortestPathOrder[i], nodesInShortestPathOrder[j] = nodesInShortestPathOrder[j], nodesInShortestPathOrder[i]
+	}
+
+	return nodesInShortestPathOrder
 }
 
 func countWallNodes(grid [][]maze.Node) int {
@@ -101,210 +312,4 @@ func countWallNodes(grid [][]maze.Node) int {
 		}
 	}
 	return count
-}
-
-func calculateAverages(metrics map[string]*Metrics) map[string]map[string]float64 {
-	averages := make(map[string]map[string]float64)
-	for algorithm, metric := range metrics {
-		averages[algorithm] = make(map[string]float64)
-		numTests := float64(len(metric.Time))
-		for _, time := range metric.Time {
-			averages[algorithm]["time"] += time
-		}
-		for _, visitedNodes := range metric.VisitedNodes {
-			averages[algorithm]["visitedNodes"] += float64(visitedNodes)
-		}
-		for _, visitedPercentage := range metric.VisitedPercentage {
-			averages[algorithm]["visitedPercentage"] += visitedPercentage
-		}
-		for _, pathLength := range metric.PathLength {
-			averages[algorithm]["pathLength"] += float64(pathLength)
-		}
-		for _, memoryUsed := range metric.MemoryUsed {
-			averages[algorithm]["memoryUsed"] += memoryUsed
-		}
-		for key := range averages[algorithm] {
-			averages[algorithm][key] /= numTests
-		}
-	}
-	return averages
-}
-
-func getInitialGrid(numRows, numCols int, singlePath bool) (
-	map[string][][]maze.Node,
-	map[string]*maze.Node,
-	map[string]*maze.Node,
-) {
-	mazeData := maze.GenerateMaze(numRows, numCols, singlePath)
-
-	grids := map[string][][]maze.Node{
-		"dijkstra":     mazeData["gridDijkstra"].([][]maze.Node),
-		"astar":        mazeData["gridAstar"].([][]maze.Node),
-		"bfs":          mazeData["gridBFS"].([][]maze.Node),
-		"dfs":          mazeData["gridDFS"].([][]maze.Node),
-		"wallFollower": mazeData["gridWallFollower"].([][]maze.Node),
-	}
-	startNodes := map[string]*maze.Node{
-		"dijkstra":     mazeData["gridDijkstraStartNode"].(*maze.Node),
-		"astar":        mazeData["gridAstarStartNode"].(*maze.Node),
-		"bfs":          mazeData["gridBFSStartNode"].(*maze.Node),
-		"dfs":          mazeData["gridDFSStartNode"].(*maze.Node),
-		"wallFollower": mazeData["gridWallFollowerStartNode"].(*maze.Node),
-	}
-	endNodes := map[string]*maze.Node{
-		"dijkstra":     mazeData["gridDijkstraEndNode"].(*maze.Node),
-		"astar":        mazeData["gridAstarEndNode"].(*maze.Node),
-		"bfs":          mazeData["gridBFSEndNode"].(*maze.Node),
-		"dfs":          mazeData["gridDFSEndNode"].(*maze.Node),
-		"wallFollower": mazeData["gridWallFollowerEndNode"].(*maze.Node),
-	}
-
-	return grids, startNodes, endNodes
-}
-
-func main() {
-	r := gin.Default()
-	r.LoadHTMLGlob("templates/*.html")
-	r.Static("/static", "./static")
-
-	r.GET("/", indexHandler)
-	r.GET("/api/metrics", metricsHandler)
-	r.GET("/api/initial-grid", gridHandler)
-
-	r.Run(":3000")
-}
-
-func indexHandler(c *gin.Context) {
-	c.HTML(http.StatusOK, "index.html", nil)
-}
-
-func metricsHandler(c *gin.Context) {
-	metrics := initializeMetrics()
-	grids, startNodes, endNodes := getInitialGrid(MazeSize, MazeSize, true)
-
-	if grids == nil || startNodes == nil || endNodes == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Grid or node data is missing"})
-		return
-	}
-
-	for algorithm := range algorithmsMap {
-		grid := grids[algorithm]
-		startNode := startNodes[algorithm]
-		endNode := endNodes[algorithm]
-		runAlgorithm(algorithm, grid, startNode, endNode, metrics)
-	}
-
-	type VisitedNode struct {
-		X          uint16 `json:"col"`
-		Y          uint16 `json:"row"`
-		GridId     string `json:"gridId"`
-		NoOfVisits uint8  `json:"noOfVisits"`
-	}
-
-	type PathNode struct {
-		X      uint16 `json:"col"`
-		Y      uint16 `json:"row"`
-		GridId string `json:"gridId"`
-	}
-
-	type AlgorithmResult struct {
-		Metrics             map[string]float64 `json:"metrics"`
-		VisitedNodesInOrder []VisitedNode      `json:"visitedNodesInOrder"`
-		ShortestPath        []PathNode         `json:"shortestPath"`
-	}
-
-	results := make(map[string]AlgorithmResult)
-
-	for algorithm, algoImpl := range algorithmsMap {
-		grid, ok := grids[algorithm]
-		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Grid data for algorithm not found"})
-			return
-		}
-
-		startNode, ok := startNodes[algorithm]
-		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Start node for algorithm not found"})
-			return
-		}
-
-		endNode, ok := endNodes[algorithm]
-		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "End node for algorithm not found"})
-			return
-		}
-
-		visitedNodes := algoImpl.FindPath(grid, startNode, endNode)
-		shortestPath := getShortestPath(endNode)
-
-		visitedNodesInOrder := make([]VisitedNode, len(visitedNodes))
-		for i, node := range visitedNodes {
-			visitedNodesInOrder[i] = VisitedNode{
-				X:          node.X,
-				Y:          node.Y,
-				GridId:     algorithm,
-				NoOfVisits: node.NoOfVisits,
-			}
-		}
-
-		shortestPathNodes := make([]PathNode, len(shortestPath))
-		for i, node := range shortestPath {
-			shortestPathNodes[i] = PathNode{
-				X:      node.X,
-				Y:      node.Y,
-				GridId: algorithm,
-			}
-		}
-
-		results[algorithm] = AlgorithmResult{
-			Metrics:             calculateAverages(map[string]*Metrics{algorithm: metrics[algorithm]})[algorithm],
-			VisitedNodesInOrder: visitedNodesInOrder,
-			ShortestPath:        shortestPathNodes,
-		}
-	}
-
-	c.JSON(http.StatusOK, results)
-}
-
-func gridHandler(c *gin.Context) {
-	grids, _, _ := getInitialGrid(MazeSize, MazeSize, false)
-
-	if grids == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Grid data is missing"})
-		return
-	}
-
-	gridData := make(map[string][][]map[string]interface{})
-	for algorithm, grid := range grids {
-		gridData[algorithm] = make([][]map[string]interface{}, len(grid))
-		for y, row := range grid {
-			gridData[algorithm][y] = make([]map[string]interface{}, len(row))
-			for x, node := range row {
-				gridData[algorithm][y][x] = map[string]interface{}{
-					"X":         node.X,
-					"Y":         node.Y,
-					"className": getClassName(node),
-				}
-			}
-		}
-	}
-
-	c.JSON(http.StatusOK, gridData)
-}
-
-func getClassName(node maze.Node) string {
-	switch {
-	case node.IsStart:
-		return "node-start"
-	case node.IsEnd:
-		return "node-end"
-	case node.IsWall:
-		return "node-wall"
-	case node.IsVisited:
-		return "node-visited"
-	case node.PreviousNode != nil:
-		return "node-shortest-path"
-	default:
-		return ""
-	}
 }

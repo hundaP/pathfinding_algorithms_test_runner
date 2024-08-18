@@ -3,6 +3,7 @@ package maze
 import (
 	"math"
 	"math/rand"
+	"sync/atomic"
 	"time"
 )
 
@@ -13,16 +14,20 @@ type Cell struct {
 }
 
 type Node struct {
-	X, Y         uint16
-	IsStart      bool
-	IsEnd        bool
-	Distance     uint32
-	IsVisited    bool
-	IsWall       bool
-	PreviousNode *Node
-	GridId       uint8
-	NoOfVisits   uint8
-	H, F         float32
+	X            uint16  `json:"x"`
+	Y            uint16  `json:"y"`
+	IsStart      bool    `json:"isStart"`
+	IsEnd        bool    `json:"isEnd"`
+	Distance     uint32  `json:"distance"`
+	IsVisited    bool    `json:"isVisited"`
+	IsWall       bool    `json:"isWall"`
+	PreviousNode *Node   `json:"-"`
+	ID           uint32  `json:"id"`
+	PreviousID   uint32  `json:"previousId"`
+	GridId       uint8   `json:"gridId"`
+	NoOfVisits   uint8   `json:"noOfVisits"`
+	H            float32 `json:"h"`
+	F            float32 `json:"f"`
 }
 
 type Maze struct {
@@ -33,6 +38,26 @@ type Maze struct {
 	Start         *Cell
 	End           *Cell
 }
+
+var nodeIDCounter uint32
+
+// Custom JSON marshaling logic for Node
+/*func (n Node) MarshalJSON() ([]byte, error) {
+	type Alias Node
+	return json.Marshal(&struct {
+		PreviousNode *uint32 `json:"previousNode,omitempty"`
+		*Alias
+	}{
+		PreviousNode: func() *uint32 {
+			if n.PreviousNode != nil {
+				prevNodeId := uint32(n.PreviousNode.X)<<16 | uint32(n.PreviousNode.Y)
+				return &prevNodeId
+			}
+			return nil
+		}(),
+		Alias: (*Alias)(&n),
+	})
+}*/
 
 func NewMaze(width, height int) *Maze {
 	// Increase dimensions by 1 if they're even
@@ -132,6 +157,7 @@ func (m *Maze) generateMazeNotGlobal() {
 }
 
 func createNode(x, y uint16, isWall bool, start, end *Cell, gridId uint8) Node {
+	id := atomic.AddUint32(&nodeIDCounter, 1)
 	return Node{
 		X:            x,
 		Y:            y,
@@ -142,6 +168,8 @@ func createNode(x, y uint16, isWall bool, start, end *Cell, gridId uint8) Node {
 		IsWall:       isWall,
 		PreviousNode: nil,
 		GridId:       gridId,
+		PreviousID:   0,
+		ID:           id,
 	}
 }
 

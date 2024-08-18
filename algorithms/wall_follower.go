@@ -27,6 +27,7 @@ func WallFollowerAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []
 		if nextNode != nil {
 			nextNode.Distance = currentNode.Distance + 1
 			nextNode.PreviousNode = currentNode
+			nextNode.PreviousID = currentNode.ID
 			previousNode = currentNode
 			currentNode = nextNode
 		} else {
@@ -34,10 +35,27 @@ func WallFollowerAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []
 				currentNode = previousNode
 				previousNode = currentNode.PreviousNode
 			} else {
-				break
+				if currentNode.PreviousID != 0 {
+					currentNode = findNodeByID(grid, currentNode.PreviousID)
+					previousNode = findNodeByID(grid, currentNode.PreviousID).PreviousNode
+				} else {
+					break
+				}
 			}
 		}
 	}
 
 	return visitedNodesInOrder
+}
+
+// Helper function to find a node by its ID
+func findNodeByID(grid [][]maze.Node, id uint32) *maze.Node {
+	for _, row := range grid {
+		for _, node := range row {
+			if node.ID == id {
+				return &node
+			}
+		}
+	}
+	return nil
 }

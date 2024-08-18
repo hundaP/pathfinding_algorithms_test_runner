@@ -1,194 +1,49 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pathfinding Visualization</title>
-    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
-
-<body>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
     <div class="App">
-        <header class="App-header">
-            <div class="button-container">
-                <button id="generate-button">Generate New Maze</button>
-                <button id="solve-button">Solve</button>
-                <label>
-                    Single Path
-                    <input type="checkbox" id="singlePath" name="singlePath" />
-                </label>
-            </div>
-            <div id="metrics-table-container">
-                <table id="metrics-table">
-                    <!-- Metrics will be injected here -->
-                </table>
-            </div>
-            <div id="grid-container" class="grid-container">
-                <!-- Grids will be injected here -->
-            </div>
-        </header>
+      <header class="App-header">
+        <div class="button-container">
+          <button id="generate-button">Generate New Maze</button>
+          <button id="solve-button">Solve</button>
+          <label>
+            Single Path
+            <input type="checkbox" id="singlePath" name="singlePath" />
+          </label>
+          <label>
+            Maze Size
+            <input type="range" id="mazeSize" name="mazeSize" min="10" max="100" step="10" value="50" />
+            <span id="mazeSizeValue">50</span>
+          </label>
+        </div>
+        <div id="metrics-table-container">
+          <table id="metrics-table">
+            <thead>
+              <tr>
+                <th>Algorithm</th>
+                <th>Time (ns)</th>
+                <th>Visited Nodes</th>
+                <th>Visited Percentage</th>
+                <th>Path Length</th>
+                <th>Memory Used (MB)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Metrics will be injected here -->
+            </tbody>
+          </table>
+        </div>
+        <div id="grid-container" class="grid-container">
+          <!-- Grids will be injected here -->
+        </div>
+      </header>
     </div>
-
-    <script>
-        let mazeGenerated = false; // Flag to track maze generation
-
-        // Fetch and display the initial grid
-        async function generateInitialGrid() {
-            try {
-                const response = await fetch('/api/initial-grid');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const gridData = await response.json();
-                updateGrid(gridData);
-                mazeGenerated = true; // Mark maze as generated
-            } catch (error) {
-                console.error('Error fetching initial grid:', error);
-            }
-        }
-
-        // Update the grid display
-        function updateGrid(gridData) {
-            const container = document.getElementById('grid-container');
-            container.innerHTML = ''; // Clear existing grid
-
-            Object.entries(gridData).forEach(([algorithm, grid]) => {
-                const gridDiv = document.createElement('div');
-                gridDiv.className = 'grid';
-                gridDiv.style.gridTemplateColumns = `repeat(${grid[0].length}, 1fr)`;
-                gridDiv.style.gridTemplateRows = `repeat(${grid.length}, 1fr)`;
-
-                grid.forEach(row => {
-                    row.forEach(node => {
-                        const nodeDiv = document.createElement('div');
-                        nodeDiv.id = `grid-${algorithm}-node-${node.Y}-${node.X}`;
-                        nodeDiv.className = `node ${node.className}`;
-                        gridDiv.appendChild(nodeDiv);
-                    });
-                });
-
-                container.appendChild(gridDiv);
-            });
-
-            console.log('Grid updated:', gridData);
-        }
-
-        async function solve() {
-            if (!mazeGenerated) {
-                alert('Please generate a maze first.');
-                return;
-            }
-            try {
-                const response = await fetch('/api/metrics');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const results = await response.json();
-
-                console.log('Fetched metrics:', results); // Debugging line
-                updateMetricsTable(results);
-
-                for (const [algorithm, data] of Object.entries(results)) {
-                    console.log(`Starting animation for ${algorithm}`); // Debugging line
-                    await animateAlgorithm(algorithm, data.visitedNodesInOrder, data.shortestPath);
-                    console.log(`Finished animation for ${algorithm}`); // Debugging line
-                }
-            } catch (error) {
-                console.error('Error fetching metrics:', error);
-            }
-        }
-
-        function animateAlgorithm(algorithm, visitedNodesInOrder, nodesInShortestPathOrder) {
-    return new Promise(resolve => {
-        visitedNodesInOrder.forEach((node, index) => {
-            setTimeout(() => {
-                const nodeElement = document.getElementById(`grid-${algorithm}-node-${node.Y}-${node.X}`);
-                if (nodeElement) {
-                    // Ensure the class name is correctly set
-                    if (!nodeElement.classList.contains('node-start') && !nodeElement.classList.contains('node-end')) {
-                        nodeElement.className = 'node node-visited';
-                        if (node.NoOfVisits > 1) {
-                            const hue = 174 + (node.NoOfVisits - 1) * 10;
-                            const lightness = Math.max(30 - (node.NoOfVisits - 1) * 5, 0);
-                            nodeElement.style.backgroundColor = `hsl(${hue}, 50%, ${lightness}%)`;
-                        }
-                    }
-                } else {
-                    console.error(`Node element not found: grid-${algorithm}-node-${node.Y}-${node.X}`);
-                }
-                if (index === visitedNodesInOrder.length - 1) {
-                    setTimeout(() => animateShortestPath(algorithm, nodesInShortestPathOrder).then(resolve), 100);
-                }
-            }, 10 * index);
-        });
-    });
-}
-
-
-        function animateShortestPath(algorithm, nodesInShortestPathOrder) {
-            return new Promise(resolve => {
-                nodesInShortestPathOrder.forEach((node, index) => {
-                    setTimeout(() => {
-                        const nodeElement = document.getElementById(`grid-${algorithm}-node-${node.Y}-${node.X}`);
-                        if (nodeElement && !nodeElement.classList.contains('node-start') && !nodeElement.classList.contains('node-end')) {
-                            nodeElement.className = 'node node-shortest-path';
-                        }
-                        if (index === nodesInShortestPathOrder.length - 1) resolve();
-                    }, 50 * index);
-                });
-            });
-        }
-
-        function updateMetricsTable(results) {
-            const table = document.getElementById('metrics-table');
-            table.innerHTML = ''; // Clear existing metrics
-
-            const headerRow = document.createElement('tr');
-            headerRow.innerHTML = `
-        <th>Algorithm</th>
-        <th>Time (s)</th>
-        <th>Visited Nodes</th>
-        <th>Visited Percentage (%)</th>
-        <th>Path Length</th>
-        <th>Memory Used (MB)</th>
-    `;
-            table.appendChild(headerRow);
-
-            Object.entries(results).forEach(([algorithm, data]) => {
-                const row = document.createElement('tr');
-                const time = data.metrics.time?.toFixed(6) || 'N/A';
-                const visitedNodes = data.visitedNodesInOrder.length || 'N/A';
-                const visitedPercentage = data.metrics.visitedPercentage?.toFixed(2) || 'N/A';
-                const pathLength = data.shortestPath.length || 'N/A';
-                const memoryUsed = data.metrics.memoryUsed?.toFixed(6) || 'N/A';
-
-                row.innerHTML = `
-            <td>${algorithm}</td>
-            <td>${time}</td>
-            <td>${visitedNodes}</td>
-            <td>${visitedPercentage}</td>
-            <td>${pathLength}</td>
-            <td>${memoryUsed}</td>
-        `;
-                table.appendChild(row);
-            });
-        }
-
-        // Initialize the page by generating the initial grid
-        document.addEventListener('DOMContentLoaded', generateInitialGrid);
-
-        // Event listeners for buttons
-        document.getElementById('generate-button').addEventListener('click', () => {
-            mazeGenerated = false; // Reset the flag
-            generateInitialGrid();
-        });
-        document.getElementById('solve-button').addEventListener('click', solve);
-    </script>
-
-
-
-</body>
-
+    <script src="/static/script.js"></script>
+  </body>
 </html>

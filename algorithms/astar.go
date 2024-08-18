@@ -3,6 +3,7 @@ package algorithms
 import (
 	"container/heap"
 	"math"
+
 	"pathfinding_algorithms_test_runner/maze"
 )
 
@@ -62,6 +63,7 @@ func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.No
 				neighbor.H = heuristic(neighbor, endNode)
 				neighbor.F = tentativeGScore + neighbor.H
 				neighbor.PreviousNode = current // Set the previous node
+				neighbor.PreviousID = current.ID
 
 				// Only push the neighbor to the open set if it's not already in it
 				if !closedSet[neighborIndex] {

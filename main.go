@@ -153,7 +153,13 @@ func runTest(mazeSize, numTests int, marker string) error {
 	if numRows%2 != 0 || numCols%2 != 0 {
 		filename := fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows, numCols, numTests)
 		if marker != "" {
-			filename = fmt.Sprintf("./data/averages%dx%dx%dx%s.csv", numRows, numCols, numTests, marker)
+			filename = fmt.Sprintf(
+				"./data/averages%dx%dx%dx%s.csv",
+				numRows,
+				numCols,
+				numTests,
+				marker,
+			)
 		}
 		writeResultsToCsv(filename, averagesSPOn, averagesSPOff)
 	} else {
@@ -205,7 +211,9 @@ func runAlgorithm(
 	// Check for overflow
 	var memoryUsed float64
 	if finalMemoryUsage.HeapAlloc >= initialMemoryUsage.HeapAlloc {
-		memoryUsed = float64(finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc) / (1024 * 1024) // Convert to MB
+		memoryUsed = float64(
+			finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc,
+		) / (1024 * 1024) // Convert to MB
 	} else {
 		memoryUsed = 0 // or handle it in another appropriate way
 	}
@@ -316,7 +324,10 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 			row := []string{
 				algorithm,
 				"true",
-				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
+				fmt.Sprintf(
+					"%.2f",
+					metrics["time"]/1e6,
+				), // Convert to milliseconds with 2 decimal places
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
 				fmt.Sprintf("%.0f", metrics["pathLength"]),
@@ -333,7 +344,10 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 			row := []string{
 				algorithm,
 				"false",
-				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
+				fmt.Sprintf(
+					"%.2f",
+					metrics["time"]/1e6,
+				), // Convert to milliseconds with 2 decimal places
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
 				fmt.Sprintf("%.0f", metrics["pathLength"]),
