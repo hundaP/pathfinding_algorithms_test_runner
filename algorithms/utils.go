@@ -5,21 +5,47 @@ import (
 )
 
 func getUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node) []*maze.Node {
-	neighbors := make([]*maze.Node, 0, 4)
-	row, col := node.X, node.Y
-	maxRow, maxCol := uint16(len(grid)-1), uint16(len(grid[0])-1)
+	var neighbors []*maze.Node
+	row, col := node.Y, node.X
+	gridRows, gridCols := uint16(len(grid)), uint16(len(grid[0]))
 
-	if row > 0 && !grid[row-1][col].IsVisited {
-		neighbors = append(neighbors, &grid[row-1][col])
+	// Use a bitfield to track which neighbors have been checked
+	checked := 0
+
+	// Check the top neighbor
+	if row > 0 {
+		neighbor := &grid[row-1][col]
+		if !neighbor.IsVisited {
+			neighbors = append(neighbors, neighbor)
+		}
+		checked |= 1
 	}
-	if row < maxRow && !grid[row+1][col].IsVisited {
-		neighbors = append(neighbors, &grid[row+1][col])
+
+	// Check the bottom neighbor
+	if row < gridRows-1 {
+		neighbor := &grid[row+1][col]
+		if !neighbor.IsVisited {
+			neighbors = append(neighbors, neighbor)
+		}
+		checked |= 2
 	}
-	if col > 0 && !grid[row][col-1].IsVisited {
-		neighbors = append(neighbors, &grid[row][col-1])
+
+	// Check the left neighbor
+	if col > 0 {
+		neighbor := &grid[row][col-1]
+		if !neighbor.IsVisited {
+			neighbors = append(neighbors, neighbor)
+		}
+		checked |= 4
 	}
-	if col < maxCol && !grid[row][col+1].IsVisited {
-		neighbors = append(neighbors, &grid[row][col+1])
+
+	// Check the right neighbor
+	if col < gridCols-1 {
+		neighbor := &grid[row][col+1]
+		if !neighbor.IsVisited {
+			neighbors = append(neighbors, neighbor)
+		}
+		checked |= 8
 	}
 
 	return neighbors

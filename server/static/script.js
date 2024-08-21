@@ -158,4 +158,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
         await animateAlgorithm(visitedNodesInOrder, nodesInShortestPathOrder);
     }
-}););););
+});

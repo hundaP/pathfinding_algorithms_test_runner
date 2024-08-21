@@ -1,8 +1,6 @@
 package main
 
 import (
-	"net/http"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -33,10 +31,11 @@ var (
 		"wallFollower": algorithms.WallFollower{},
 	}
 
-	grids      map[string][][]maze.Node
-	startNodes map[string]*maze.Node
-	endNodes   map[string]*maze.Node
-	metrics    map[string]*Metrics
+	grids        map[string][][]maze.Node
+	startNodes   map[string]*maze.Node
+	endNodes     map[string]*maze.Node
+	metrics      map[string]*Metrics
+	metricsMutex = &sync.Mutex{}
 )
 
 func main() {
@@ -49,15 +48,6 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
-
-	// Serve index.html
-	router.LoadHTMLFiles(filepath.Join("templates", "index.html"))
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
-	})
-
-	// Serve static files
-	router.Static("/static", "./static")
 
 	// Routes
 	router.GET("/api/maze", mazeHandler)
@@ -151,6 +141,11 @@ func solutionHandler(c *gin.Context) {
 	var wg sync.WaitGroup
 	results := make(map[string]interface{})
 
+	// Reset metrics
+	metricsMutex.Lock()
+	metrics = initializeMetrics()
+	metricsMutex.Unlock()
+
 	for algorithm, alg := range algorithmsMap {
 		wg.Add(1)
 		go func(algorithm string, alg algorithms.Algorithm) {
@@ -166,19 +161,6 @@ func solutionHandler(c *gin.Context) {
 				endNode,
 			)
 
-			// Marshal nodesInShortestPathOrder and visitedNodesInOrder to JSON
-			/*nodesInShortestPathOrderJSON, err := json.Marshal(nodesInShortestPathOrder)
-			if err != nil {
-				c.JSON(500, gin.H{"error": "Failed to marshal nodesInShortestPathOrder"})
-				return
-			}
-
-			visitedNodesInOrderJSON, err := json.Marshal(visitedNodesInOrder)
-			if err != nil {
-				c.JSON(500, gin.H{"error": "Failed to marshal visitedNodesInOrder"})
-				return
-			}*/
-
 			results[algorithm] = gin.H{
 				"visitedNodesInOrder":      visitedNodesInOrder,
 				"nodesInShortestPathOrder": nodesInShortestPathOrder,
@@ -188,7 +170,6 @@ func solutionHandler(c *gin.Context) {
 	}
 
 	wg.Wait()
-	// fmt.Println("Results: ", results)
 	c.JSON(200, results)
 }
 
@@ -223,16 +204,15 @@ func runAlgorithm(
 	runtime.ReadMemStats(&finalMemoryUsage)
 
 	endTime := time.Now()
-	timeTaken := endTime.Sub(startTime).Nanoseconds() // Convert to nanoseconds
+	timeTaken := endTime.Sub(startTime).Nanoseconds() // Convert to milliseconds
 
-	// Check for overflow
 	var memoryUsed float64
 	if finalMemoryUsage.HeapAlloc >= initialMemoryUsage.HeapAlloc {
 		memoryUsed = float64(
 			finalMemoryUsage.HeapAlloc-initialMemoryUsage.HeapAlloc,
 		) / (1024 * 1024) // Convert to MB
 	} else {
-		memoryUsed = 0 // or handle it in another appropriate way
+		memoryUsed = 0
 	}
 
 	totalNodes := len(grid) * len(grid[0])
@@ -240,6 +220,7 @@ func runAlgorithm(
 	nonWallNodes := totalNodes - wallNodes
 	visitedPercentage := (float64(len(visitedNodesInOrder)) / float64(nonWallNodes)) * 100
 
+	metricsMutex.Lock()
 	metrics[algorithm].Time = append(metrics[algorithm].Time, float64(timeTaken))
 	metrics[algorithm].VisitedNodes = append(
 		metrics[algorithm].VisitedNodes,
@@ -254,31 +235,11 @@ func runAlgorithm(
 		len(nodesInShortestPathOrder),
 	)
 	metrics[algorithm].MemoryUsed = append(metrics[algorithm].MemoryUsed, memoryUsed)
-
-	// Log the metrics for debugging
-	// fmt.Printf("Metrics for algorithm %s: %+v\n", algorithm, metrics[algorithm])
+	metricsMutex.Unlock()
 
 	return nodesInShortestPathOrder, visitedNodesInOrder
 }
 
-/* getNodesInShortestPathOrder with pointers
-func getNodesInShortestPathOrder(endNode *maze.Node) []*maze.Node {
-	var nodesInShortestPathOrder []*maze.Node
-	currentNode := endNode
-	for currentNode != nil {
-		nodesInShortestPathOrder = append(nodesInShortestPathOrder, currentNode)
-		currentNode = currentNode.PreviousNode
-	}
-
-	// Reverse the slice
-	for i, j := 0, len(nodesInShortestPathOrder)-1; i < j; i, j = i+1, j-1 {
-		nodesInShortestPathOrder[i], nodesInShortestPathOrder[j] = nodesInShortestPathOrder[j], nodesInShortestPathOrder[i]
-	}
-
-	return nodesInShortestPathOrder
-}*/
-
-// getNodesInShortestPathOrder with IDs
 func getNodesInShortestPathOrder(endNode *maze.Node, grid [][]maze.Node) []*maze.Node {
 	nodeMap := make(map[uint32]*maze.Node)
 	for _, row := range grid {
