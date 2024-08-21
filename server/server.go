@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -48,6 +52,15 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
+
+	// Serve index.html
+	router.LoadHTMLFiles(filepath.Join("templates", "index.html"))
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", nil)
+	})
+
+	// Serve static files
+	router.Static("/static", "./static")
 
 	// Routes
 	router.GET("/api/maze", mazeHandler)
@@ -146,6 +159,8 @@ func solutionHandler(c *gin.Context) {
 	metrics = initializeMetrics()
 	metricsMutex.Unlock()
 
+	initializeHTMLFile("visualization.html")
+
 	for algorithm, alg := range algorithmsMap {
 		wg.Add(1)
 		go func(algorithm string, alg algorithms.Algorithm) {
@@ -170,6 +185,7 @@ func solutionHandler(c *gin.Context) {
 	}
 
 	wg.Wait()
+	finalizeHTMLFile("visualization.html")
 	c.JSON(200, results)
 }
 
@@ -198,13 +214,13 @@ func runAlgorithm(
 	var midMemoryUsage runtime.MemStats
 	runtime.ReadMemStats(&midMemoryUsage)
 
-	nodesInShortestPathOrder := getNodesInShortestPathOrder(endNode, grid)
+	nodesInShortestPathOrder := getNodesInShortestPathOrder(endNode)
 
 	var finalMemoryUsage runtime.MemStats
 	runtime.ReadMemStats(&finalMemoryUsage)
 
 	endTime := time.Now()
-	timeTaken := endTime.Sub(startTime).Nanoseconds() // Convert to milliseconds
+	timeTaken := endTime.Sub(startTime).Nanoseconds()
 
 	var memoryUsed float64
 	if finalMemoryUsage.HeapAlloc >= initialMemoryUsage.HeapAlloc {
@@ -237,22 +253,19 @@ func runAlgorithm(
 	metrics[algorithm].MemoryUsed = append(metrics[algorithm].MemoryUsed, memoryUsed)
 	metricsMutex.Unlock()
 
+	// Generate the HTML visualization for this algorithm
+	htmlContent := generateHTMLGrid(algorithm, grid, visitedNodesInOrder, nodesInShortestPathOrder)
+	appendHTMLToFile("visualization.html", htmlContent)
+
 	return nodesInShortestPathOrder, visitedNodesInOrder
 }
 
-func getNodesInShortestPathOrder(endNode *maze.Node, grid [][]maze.Node) []*maze.Node {
-	nodeMap := make(map[uint32]*maze.Node)
-	for _, row := range grid {
-		for _, node := range row {
-			nodeMap[node.ID] = &node
-		}
-	}
-
+func getNodesInShortestPathOrder(endNode *maze.Node) []*maze.Node {
 	var nodesInShortestPathOrder []*maze.Node
 	currentNode := endNode
 	for currentNode != nil {
 		nodesInShortestPathOrder = append(nodesInShortestPathOrder, currentNode)
-		currentNode = nodeMap[currentNode.PreviousID]
+		currentNode = currentNode.PreviousNode
 	}
 
 	// Reverse the slice
@@ -273,4 +286,93 @@ func countWallNodes(grid [][]maze.Node) int {
 		}
 	}
 	return count
+}
+
+func initializeHTMLFile(filename string) {
+	file, err := os.Create(filename)
+	if err != nil {
+		fmt.Println("Error creating file:", err)
+		return
+	}
+	defer file.Close()
+
+	initialContent := "<html><head><style>"
+	initialContent += "table { border-collapse: collapse; }"
+	initialContent += "td { width: 20px; height: 20px; text-align: center; }"
+	initialContent += ".wall { background-color: black; }"
+	initialContent += ".visited { background-color: blue; }"
+	initialContent += ".path { background-color: yellow !important; }" // Yellow for the path, with higher priority
+	initialContent += ".empty { background-color: white; }"
+	initialContent += "</style></head><body>"
+
+	if _, err := file.WriteString(initialContent); err != nil {
+		fmt.Println("Error writing to file:", err)
+	}
+}
+
+func appendHTMLToFile(filename, content string) {
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(content); err != nil {
+		fmt.Println("Error writing to file:", err)
+	}
+}
+
+func finalizeHTMLFile(filename string) {
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString("</body></html>"); err != nil {
+		fmt.Println("Error writing to file:", err)
+	}
+}
+
+func generateHTMLGrid(algorithm string, grid [][]maze.Node, visitedNodes []maze.Node, nodesInShortestPathOrder []*maze.Node) string {
+	// Create a set of visited nodes for fast lookup
+	visitedNodesSet := make(map[maze.Node]struct{})
+	for _, node := range visitedNodes {
+		visitedNodesSet[node] = struct{}{}
+	}
+
+	// Create a set of nodes in the shortest path for fast lookup
+	shortestPathNodesSet := make(map[*maze.Node]struct{})
+	for _, node := range nodesInShortestPathOrder {
+		shortestPathNodesSet[node] = struct{}{}
+	}
+
+	// Start building the HTML content
+	html := fmt.Sprintf("<h2>Algorithm: %s</h2>", algorithm)
+	html += "<table>"
+
+	// Generate the HTML table for the grid
+	for _, row := range grid {
+		html += "<tr>"
+		for _, node := range row {
+			cellClass := "empty"
+			if node.IsWall {
+				cellClass = "wall"
+			} else if _, found := visitedNodesSet[node]; found {
+				cellClass = "visited" // Set visited initially
+				if _, inPath := shortestPathNodesSet[&node]; inPath {
+					cellClass = "path" // Override with path if in shortest path
+				}
+			} else if _, found := shortestPathNodesSet[&node]; found {
+				cellClass = "path" // Shortest path nodes in yellow
+			}
+			html += fmt.Sprintf("<td class='%s'></td>", cellClass)
+		}
+		html += "</tr>"
+	}
+
+	html += "</table>"
+	return html
 }

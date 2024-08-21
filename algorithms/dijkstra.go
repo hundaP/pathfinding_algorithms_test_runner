@@ -46,7 +46,6 @@ func updateUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node, unvisitedNode
 		if newDistance < neighbor.Distance {
 			neighbor.Distance = newDistance
 			neighbor.PreviousNode = node
-			neighbor.PreviousID = node.ID
 			if !contains(unvisitedNodes, neighbor) {
 				heap.Push(unvisitedNodes, neighbor)
 			} else {

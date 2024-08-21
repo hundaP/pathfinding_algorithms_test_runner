@@ -34,7 +34,6 @@ func BFSAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node
 		for _, neighbor := range unvisitedNeighbors {
 			neighbor.Distance = currentNode.Distance + 1
 			neighbor.PreviousNode = currentNode
-			neighbor.PreviousID = currentNode.ID
 			neighbor.IsVisited = true // Mark as visited here
 			queue = append(queue, neighbor)
 		}
