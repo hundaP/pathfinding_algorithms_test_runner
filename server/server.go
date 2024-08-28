@@ -53,15 +53,6 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Serve index.html
-	router.LoadHTMLFiles(filepath.Join("templates", "index.html"))
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", nil)
-	})
-
-	// Serve static files
-	router.Static("/static", "./static")
-
 	// Routes
 	router.GET("/api/maze", mazeHandler)
 	router.GET("/api/solution", solutionHandler)
@@ -336,7 +327,12 @@ func finalizeHTMLFile(filename string) {
 	}
 }
 
-func generateHTMLGrid(algorithm string, grid [][]maze.Node, visitedNodes []maze.Node, nodesInShortestPathOrder []*maze.Node) string {
+func generateHTMLGrid(
+	algorithm string,
+	grid [][]maze.Node,
+	visitedNodes []maze.Node,
+	nodesInShortestPathOrder []*maze.Node,
+) string {
 	// Create a set of visited nodes for fast lookup
 	visitedNodesSet := make(map[maze.Node]struct{})
 	for _, node := range visitedNodes {

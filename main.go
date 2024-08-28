@@ -7,12 +7,11 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"runtime/pprof"
 	"strconv"
 	"sync"
 	"time"
 
-	"pathfinding_algorithms_test_runner/algorithms"
+	"pathfinding_algorithms_test_runner/algorithms" //"runtime/pprof"
 	"pathfinding_algorithms_test_runner/maze"
 )
 
@@ -36,28 +35,9 @@ func main() {
 	nFlag := flag.String("n", "", "Optional filename marker")
 	flag.Parse()
 
-	// Open files for CPU and memory profiling
-	cpuProfile, err := os.Create("cpu.prof")
-	if err != nil {
-		log.Fatal("could not create CPU profile: ", err)
-	}
-	defer cpuProfile.Close()
-
-	memProfile, err := os.Create("mem.prof")
-	if err != nil {
-		log.Fatal("could not create memory profile: ", err)
-	}
-	defer memProfile.Close()
-
-	// Start CPU profiling
-	if err := pprof.StartCPUProfile(cpuProfile); err != nil {
-		log.Fatal("could not start CPU profile: ", err)
-	}
-	defer pprof.StopCPUProfile()
-
 	args := flag.Args()
 	if len(args) < 2 {
-		runTestsWithIncreasingSize(*nFlag)
+		runTestsWithIncreasingSize(*nFlag, "")
 	} else {
 		mazeSize, _ := strconv.Atoi(args[0])
 		numTests, _ := strconv.Atoi(args[1])
@@ -65,21 +45,19 @@ func main() {
 		if len(args) > 2 {
 			marker = args[2]
 		}
-		runTest(mazeSize, numTests, marker)
-	}
-
-	// Stop CPU profiling and write memory profile
-	pprof.StopCPUProfile()
-	if err := pprof.WriteHeapProfile(memProfile); err != nil {
-		log.Fatal("could not write memory profile: ", err)
+		var outputDir string
+		if len(args) > 3 {
+			outputDir = args[3]
+		}
+		runTest(mazeSize, numTests, marker, outputDir)
 	}
 }
 
-func runTestsWithIncreasingSize(marker string) {
+func runTestsWithIncreasingSize(marker, outputDir string) {
 	size := 25
 	for {
 		fmt.Printf("Running tests with maze size %d\n", size)
-		err := runTest(size, 10, marker)
+		err := runTest(size, 10, marker, outputDir)
 		if err != nil {
 			fmt.Printf("Test failed for maze size %d: %s\n", size, err.Error())
 			break
@@ -88,7 +66,7 @@ func runTestsWithIncreasingSize(marker string) {
 	}
 }
 
-func runTest(mazeSize, numTests int, marker string) error {
+func runTest(mazeSize, numTests int, marker, outputDir string) error {
 	numRows := mazeSize
 	numCols := mazeSize
 	metricsSPOn := initializeMetrics()
@@ -151,10 +129,11 @@ func runTest(mazeSize, numTests int, marker string) error {
 	averagesSPOff := calculateAverages(metricsSPOff)
 
 	if numRows%2 != 0 || numCols%2 != 0 {
-		filename := fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows, numCols, numTests)
+		filename := fmt.Sprintf("%s/averages%dx%dx%d.csv", outputDir, numRows, numCols, numTests)
 		if marker != "" {
 			filename = fmt.Sprintf(
-				"./data/averages%dx%dx%dx%s.csv",
+				"%s/averages%dx%dx%dx%s.csv",
+				outputDir,
 				numRows,
 				numCols,
 				numTests,
@@ -164,9 +143,9 @@ func runTest(mazeSize, numTests int, marker string) error {
 		writeResultsToCsv(filename, averagesSPOn, averagesSPOff)
 	} else {
 		fmt.Println("Sorry! Even mazes aren't supported, so the size was incremented by 1.")
-		filename := fmt.Sprintf("./data/averages%dx%dx%d.csv", numRows+1, numCols+1, numTests)
+		filename := fmt.Sprintf("%s/averages%dx%dx%d.csv", outputDir, numRows+1, numCols+1, numTests)
 		if marker != "" {
-			filename = fmt.Sprintf("./data/averages%dx%dx%dx%s.csv", numRows+1, numCols+1, numTests, marker)
+			filename = fmt.Sprintf("%s/averages%dx%dx%dx%s.csv", outputDir, numRows+1, numCols+1, numTests, marker)
 		}
 		writeResultsToCsv(filename, averagesSPOn, averagesSPOff)
 	}
