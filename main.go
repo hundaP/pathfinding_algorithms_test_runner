@@ -33,11 +33,17 @@ var algorithmsMap = map[string]algorithms.Algorithm{
 
 func main() {
 	nFlag := flag.String("n", "", "Optional filename marker")
+	oFlag := flag.String("o", "", "Output directory (required)")
 	flag.Parse()
+
+	if *oFlag == "" {
+		fmt.Println("Error: Output directory must be specified with the -o flag.")
+		os.Exit(1)
+	}
 
 	args := flag.Args()
 	if len(args) < 2 {
-		runTestsWithIncreasingSize(*nFlag, "")
+		runTestsWithIncreasingSize(*nFlag, *oFlag)
 	} else {
 		mazeSize, _ := strconv.Atoi(args[0])
 		numTests, _ := strconv.Atoi(args[1])
@@ -45,11 +51,7 @@ func main() {
 		if len(args) > 2 {
 			marker = args[2]
 		}
-		var outputDir string
-		if len(args) > 3 {
-			outputDir = args[3]
-		}
-		runTest(mazeSize, numTests, marker, outputDir)
+		runTest(mazeSize, numTests, marker, *oFlag)
 	}
 }
 
