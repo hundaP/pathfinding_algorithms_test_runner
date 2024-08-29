@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -143,14 +144,12 @@ func getInitialGrid(
 
 func solutionHandler(c *gin.Context) {
 	var wg sync.WaitGroup
-	results := make(map[string]interface{})
+	compressedResults := make(map[string]interface{})
 
 	// Reset metrics
 	metricsMutex.Lock()
 	metrics = initializeMetrics()
 	metricsMutex.Unlock()
-
-	initializeHTMLFile("visualization.html")
 
 	for algorithm, alg := range algorithmsMap {
 		wg.Add(1)
@@ -167,17 +166,51 @@ func solutionHandler(c *gin.Context) {
 				endNode,
 			)
 
-			results[algorithm] = gin.H{
-				"visitedNodesInOrder":      visitedNodesInOrder,
-				"nodesInShortestPathOrder": nodesInShortestPathOrder,
+			compressedResults[algorithm] = gin.H{
+				"visitedNodesInOrder":      compressNodeList(visitedNodesInOrder),
+				"nodesInShortestPathOrder": compressNodeList(nodesInShortestPathOrder),
 				"metrics":                  metrics[algorithm],
 			}
 		}(algorithm, alg)
 	}
 
 	wg.Wait()
-	finalizeHTMLFile("visualization.html")
-	c.JSON(200, results)
+
+	// Compress the results
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if err := json.NewEncoder(gz).Encode(compressedResults); err != nil {
+		c.JSON(500, gin.H{"error": "Error encoding results"})
+		return
+	}
+	gz.Close()
+
+	// Encode the compressed data as base64
+	encodedData := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+	c.JSON(200, gin.H{"compressedData": encodedData})
+}
+
+func compressNodeList(nodes interface{}) [][]int {
+	var compressed [][]int
+
+	switch n := nodes.(type) {
+	case []maze.Node:
+		compressed = make([][]int, len(n))
+		for i, node := range n {
+			compressed[i] = []int{int(node.X), int(node.Y), int(node.NoOfVisits)}
+		}
+	case []*maze.Node:
+		compressed = make([][]int, len(n))
+		for i, node := range n {
+			compressed[i] = []int{int(node.X), int(node.Y), int(node.NoOfVisits)}
+		}
+	default:
+		fmt.Println("Unsupported node type")
+		return nil
+	}
+
+	return compressed
 }
 
 func initializeMetrics() map[string]*Metrics {
@@ -244,10 +277,6 @@ func runAlgorithm(
 	metrics[algorithm].MemoryUsed = append(metrics[algorithm].MemoryUsed, memoryUsed)
 	metricsMutex.Unlock()
 
-	// Generate the HTML visualization for this algorithm
-	htmlContent := generateHTMLGrid(algorithm, grid, visitedNodesInOrder, nodesInShortestPathOrder)
-	appendHTMLToFile("visualization.html", htmlContent)
-
 	return nodesInShortestPathOrder, visitedNodesInOrder
 }
 
@@ -277,98 +306,4 @@ func countWallNodes(grid [][]maze.Node) int {
 		}
 	}
 	return count
-}
-
-func initializeHTMLFile(filename string) {
-	file, err := os.Create(filename)
-	if err != nil {
-		fmt.Println("Error creating file:", err)
-		return
-	}
-	defer file.Close()
-
-	initialContent := "<html><head><style>"
-	initialContent += "table { border-collapse: collapse; }"
-	initialContent += "td { width: 20px; height: 20px; text-align: center; }"
-	initialContent += ".wall { background-color: black; }"
-	initialContent += ".visited { background-color: blue; }"
-	initialContent += ".path { background-color: yellow !important; }" // Yellow for the path, with higher priority
-	initialContent += ".empty { background-color: white; }"
-	initialContent += "</style></head><body>"
-
-	if _, err := file.WriteString(initialContent); err != nil {
-		fmt.Println("Error writing to file:", err)
-	}
-}
-
-func appendHTMLToFile(filename, content string) {
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
-
-	if _, err := file.WriteString(content); err != nil {
-		fmt.Println("Error writing to file:", err)
-	}
-}
-
-func finalizeHTMLFile(filename string) {
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
-	}
-	defer file.Close()
-
-	if _, err := file.WriteString("</body></html>"); err != nil {
-		fmt.Println("Error writing to file:", err)
-	}
-}
-
-func generateHTMLGrid(
-	algorithm string,
-	grid [][]maze.Node,
-	visitedNodes []maze.Node,
-	nodesInShortestPathOrder []*maze.Node,
-) string {
-	// Create a set of visited nodes for fast lookup
-	visitedNodesSet := make(map[maze.Node]struct{})
-	for _, node := range visitedNodes {
-		visitedNodesSet[node] = struct{}{}
-	}
-
-	// Create a set of nodes in the shortest path for fast lookup
-	shortestPathNodesSet := make(map[*maze.Node]struct{})
-	for _, node := range nodesInShortestPathOrder {
-		shortestPathNodesSet[node] = struct{}{}
-	}
-
-	// Start building the HTML content
-	html := fmt.Sprintf("<h2>Algorithm: %s</h2>", algorithm)
-	html += "<table>"
-
-	// Generate the HTML table for the grid
-	for _, row := range grid {
-		html += "<tr>"
-		for _, node := range row {
-			cellClass := "empty"
-			if node.IsWall {
-				cellClass = "wall"
-			} else if _, found := visitedNodesSet[node]; found {
-				cellClass = "visited" // Set visited initially
-				if _, inPath := shortestPathNodesSet[&node]; inPath {
-					cellClass = "path" // Override with path if in shortest path
-				}
-			} else if _, found := shortestPathNodesSet[&node]; found {
-				cellClass = "path" // Shortest path nodes in yellow
-			}
-			html += fmt.Sprintf("<td class='%s'></td>", cellClass)
-		}
-		html += "</tr>"
-	}
-
-	html += "</table>"
-	return html
 }

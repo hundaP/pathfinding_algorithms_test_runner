@@ -16,9 +16,10 @@ func WallFollowerAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []
 	startNode.Distance = 0
 	currentNode := startNode
 	var previousNode *maze.Node
-	currentDirection := Right // Assume starting direction is right
+	currentDirection := Right                     // Assume starting direction is right
+	maxIterations := len(grid) * len(grid[0]) * 2 // Set a maximum number of iterations
 
-	for currentNode != endNode {
+	for currentNode != endNode && maxIterations > 0 {
 		currentNode.IsVisited = true
 		currentNode.NoOfVisits++
 		visitedNodesInOrder = append(visitedNodesInOrder, *currentNode)
@@ -27,7 +28,7 @@ func WallFollowerAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []
 		var nextNode *maze.Node
 
 		for _, neighbor := range neighbors {
-			if neighbor != previousNode && !neighbor.IsWall && !neighbor.IsVisited {
+			if !neighbor.IsWall && (neighbor.NoOfVisits == 0 || neighbor == endNode) {
 				nextNode = neighbor
 				break
 			}
@@ -40,13 +41,17 @@ func WallFollowerAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []
 			currentDirection = getDirection(currentNode, nextNode)
 			currentNode = nextNode
 		} else {
+			// Backtrack
 			if previousNode != nil {
 				currentNode = previousNode
 				previousNode = currentNode.PreviousNode
+				currentDirection = (currentDirection + 2) % 4 // Reverse direction
 			} else {
-				break
+				break // No more backtracking possible
 			}
 		}
+
+		maxIterations--
 	}
 
 	return visitedNodesInOrder
@@ -56,63 +61,26 @@ func WallFollowerAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []
 func getPrioritizedNeighbors(node *maze.Node, grid [][]maze.Node, direction int) []*maze.Node {
 	var neighbors []*maze.Node
 	row, col := node.Y, node.X
+	maxRow, maxCol := uint16(len(grid)-1), uint16(len(grid[0])-1)
 
+	// Define the order of directions to check based on the current direction
+	var directions [4][2]int
 	switch direction {
 	case Left:
-		// Prioritize Down, Left, Up, Right
-		if row < uint16(len(grid)-1) {
-			neighbors = append(neighbors, &grid[row+1][col]) // Down
-		}
-		if col > 0 {
-			neighbors = append(neighbors, &grid[row][col-1]) // Left
-		}
-		if row > 0 {
-			neighbors = append(neighbors, &grid[row-1][col]) // Up
-		}
-		if col < uint16(len(grid[0])-1) {
-			neighbors = append(neighbors, &grid[row][col+1]) // Right
-		}
+		directions = [4][2]int{{0, -1}, {1, 0}, {-1, 0}, {0, 1}} // Left, Down, Up, Right
 	case Up:
-		// Prioritize Left, Up, Right, Down
-		if col > 0 {
-			neighbors = append(neighbors, &grid[row][col-1]) // Left
-		}
-		if row > 0 {
-			neighbors = append(neighbors, &grid[row-1][col]) // Up
-		}
-		if col < uint16(len(grid[0])-1) {
-			neighbors = append(neighbors, &grid[row][col+1]) // Right
-		}
-		if row < uint16(len(grid)-1) {
-			neighbors = append(neighbors, &grid[row+1][col]) // Down
-		}
+		directions = [4][2]int{{-1, 0}, {0, -1}, {0, 1}, {1, 0}} // Up, Left, Right, Down
 	case Right:
-		// Prioritize Up, Right, Down, Left
-		if row > 0 {
-			neighbors = append(neighbors, &grid[row-1][col]) // Up
-		}
-		if col < uint16(len(grid[0])-1) {
-			neighbors = append(neighbors, &grid[row][col+1]) // Right
-		}
-		if row < uint16(len(grid)-1) {
-			neighbors = append(neighbors, &grid[row+1][col]) // Down
-		}
-		if col > 0 {
-			neighbors = append(neighbors, &grid[row][col-1]) // Left
-		}
+		directions = [4][2]int{{0, 1}, {-1, 0}, {1, 0}, {0, -1}} // Right, Up, Down, Left
 	case Down:
-		// Prioritize Right, Down, Left, Up
-		if col < uint16(len(grid[0])-1) {
-			neighbors = append(neighbors, &grid[row][col+1]) // Right
-		}
-		if row < uint16(len(grid)-1) {
-			neighbors = append(neighbors, &grid[row+1][col]) // Down
-		}
-		if col > 0 {
-			neighbors = append(neighbors, &grid[row][col-1]) // Left
-		}
-		if row > 0 {
-			neighbors = append(neighbors, &grid[row-1][col]) // Up
+		directions = [4][2]int{{1, 0}, {0, 1}, {0, -1}, {-1, 0}} // Down, Right, Left, Up
+	}
+
+	// Check neighbors in the prioritized order
+	for _, dir := range directions {
+		newRow, newCol := row+uint16(dir[0]), col+uint16(dir[1])
+		if newRow <= maxRow && newCol <= maxCol {
+			neighbors = append(neighbors, &grid[newRow][newCol])
 		}
 	}
 

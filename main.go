@@ -54,7 +54,6 @@ func main() {
 		runTest(mazeSize, numTests, marker, *oFlag)
 	}
 }
-
 func runTestsWithIncreasingSize(marker, outputDir string) {
 	size := 25
 	for {

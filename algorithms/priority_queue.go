@@ -45,3 +45,12 @@ func (pq *PriorityQueue) update(node *maze.Node, distance uint32) {
 		}
 	}
 }
+
+func (pq *PriorityQueue) IndexOf(node *maze.Node) int {
+	for i, n := range pq.nodes {
+		if n == node {
+			return i
+		}
+	}
+	return -1
+}
