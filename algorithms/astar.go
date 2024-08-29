@@ -7,9 +7,11 @@ import (
 	"pathfinding_algorithms_test_runner/maze"
 )
 
-func heuristic(node, endNode *maze.Node) uint32 {
-	// Manhattan distance
-	return uint32(math.Abs(float64(node.X-endNode.X)) + math.Abs(float64(node.Y-endNode.Y)))
+func heuristic(node, endNode *maze.Node) float32 {
+	manhattanDistance := float32(math.Abs(float64(node.X-endNode.X)) + math.Abs(float64(node.Y-endNode.Y)))
+	//euclideanDistance := float32(math.Sqrt(float64(node.X-endNode.X)*float64(node.X-endNode.X) + float64(node.Y-endNode.Y)*float64(node.Y-endNode.Y)))
+	//chebyshevDistance := float32(math.Max(float64(node.X-endNode.X), float64(node.Y-endNode.Y)))
+	return manhattanDistance
 }
 
 func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node {
@@ -28,8 +30,9 @@ func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.No
 
 	startIndex := uint32(startNode.Y)*uint32(cols) + uint32(startNode.X)
 	gScore[startIndex] = 0
-	fScore[startIndex] = float32(heuristic(startNode, endNode))
+	fScore[startIndex] = heuristic(startNode, endNode)
 
+	startNode.G = 0
 	startNode.F = fScore[startIndex]
 	heap.Push(openSet, startNode)
 
@@ -63,7 +66,8 @@ func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.No
 			if tentativeGScore < gScore[neighborIndex] {
 				neighbor.PreviousNode = current
 				gScore[neighborIndex] = tentativeGScore
-				fScore[neighborIndex] = gScore[neighborIndex] + float32(heuristic(neighbor, endNode))
+				fScore[neighborIndex] = gScore[neighborIndex] + heuristic(neighbor, endNode)
+				neighbor.G = tentativeGScore
 				neighbor.F = fScore[neighborIndex]
 
 				if !contains(openSet, neighbor) {

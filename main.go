@@ -54,6 +54,7 @@ func main() {
 		runTest(mazeSize, numTests, marker, *oFlag)
 	}
 }
+
 func runTestsWithIncreasingSize(marker, outputDir string) {
 	size := 25
 	for {
@@ -72,6 +73,9 @@ func runTest(mazeSize, numTests int, marker, outputDir string) error {
 	numCols := mazeSize
 	metricsSPOn := initializeMetrics()
 	metricsSPOff := initializeMetrics()
+
+	// Counter for path length differences
+	differentPathCount := 0
 
 	// Test mazes with a single path
 	for i := 0; i < numTests; i++ {
@@ -118,6 +122,12 @@ func runTest(mazeSize, numTests int, marker, outputDir string) error {
 			}(algorithm)
 		}
 		wg.Wait()
+
+		// Compare path lengths of A* and Dijkstra
+		if metricsSPOff["astar"].PathLength[i] != metricsSPOff["dijkstra"].PathLength[i] {
+			differentPathCount++
+		}
+
 		fmt.Printf(
 			"Completed test %d of %d for mazes with multiple paths, for size: %d\n",
 			i+1,
@@ -126,6 +136,13 @@ func runTest(mazeSize, numTests int, marker, outputDir string) error {
 		)
 		clearMemory(grids, startNodes, endNodes)
 	}
+
+	// Print the counter at the end
+	fmt.Printf(
+		"Number of times A* path length is different from Dijkstra: %d\n",
+		differentPathCount,
+	)
+
 	averagesSPOn := calculateAverages(metricsSPOn)
 	averagesSPOff := calculateAverages(metricsSPOff)
 

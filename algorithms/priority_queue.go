@@ -14,6 +14,9 @@ func (pq PriorityQueue) Len() int { return len(pq.nodes) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
 	if pq.useAstar {
+		if pq.nodes[i].F == pq.nodes[j].F {
+			return pq.nodes[i].G < pq.nodes[j].G
+		}
 		return pq.nodes[i].F < pq.nodes[j].F
 	}
 	return pq.nodes[i].Distance < pq.nodes[j].Distance

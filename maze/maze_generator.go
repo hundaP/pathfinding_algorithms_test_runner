@@ -23,8 +23,8 @@ type Node struct {
 	PreviousNode *Node   `json:"previousNode"`
 	GridId       uint8   `json:"gridId"`
 	NoOfVisits   uint8   `json:"noOfVisits"`
-	H            float32 `json:"h"`
 	F            float32 `json:"f"`
+	G            float32 `json:"g"`
 }
 
 type Maze struct {
@@ -62,13 +62,22 @@ func NewMaze(width, height int) *Maze {
 	}
 
 	// Set start and end cells
-	m.CurrentCell = &m.Grid[1][1]
-	m.Start = &m.Grid[1][1]
-	m.End = &m.Grid[height-2][width-2]
+	startY := height / 2
+	if startY%2 == 0 {
+		startY--
+	}
+	endY := height / 2
+	if endY%2 == 0 {
+		endY--
+	}
+
+	m.CurrentCell = &m.Grid[startY][1]
+	m.Start = &m.Grid[startY][1]
+	m.End = &m.Grid[endY][width-2]
 
 	// Ensure start and end cells are not walls
-	m.Grid[1][1].IsWall = false
-	m.Grid[height-2][width-2].IsWall = false
+	m.Grid[startY][1].IsWall = false
+	m.Grid[endY][width-2].IsWall = false
 
 	return m
 }
