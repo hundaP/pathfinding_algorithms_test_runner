@@ -1,0 +1,11 @@
+Algorithm,SinglePath,Time [ms],VisitedNodes,VisitedPercentage [%],PathLength,MemoryUsed [MB]
+dijkstra,true,166.72,709773,90.85,10351,255.41
+astar,true,190.16,702620,89.94,10351,248.36
+bfs,true,120.58,709773,90.85,10351,345.11
+dfs,true,46.14,433202,55.45,10351,252.21
+wallFollower,true,114.92,681008,87.17,10351,242.58
+dijkstra,false,240.93,819450,95.81,2134,343.61
+astar,false,192.89,474645,55.49,2176,339.86
+bfs,false,106.15,819531,95.82,2134,255.06
+dfs,false,34.59,258107,30.18,46177,153.35
+wallFollower,false,85.30,528009,61.74,15376,205.95

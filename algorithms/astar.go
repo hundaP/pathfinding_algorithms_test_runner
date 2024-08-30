@@ -11,9 +11,13 @@ func heuristic(node, endNode *maze.Node) float32 {
 	manhattanDistance := float32(math.Abs(float64(node.X-endNode.X)) + math.Abs(float64(node.Y-endNode.Y)))
 	//euclideanDistance := float32(math.Sqrt(float64(node.X-endNode.X)*float64(node.X-endNode.X) + float64(node.Y-endNode.Y)*float64(node.Y-endNode.Y)))
 	//chebyshevDistance := float32(math.Max(float64(node.X-endNode.X), float64(node.Y-endNode.Y)))
+<<<<<<< HEAD
 
 	// Calculate Canberra distance
    	 //canberraDistance := float32(math.Abs(float64(node.X - endNode.X)) / (float64(node.X) + float64(endNode.X)) + math.Abs(float64(node.Y - endNode.Y)) / (float64(node.Y) + float64(endNode.Y)))
+=======
+	//canberraDistance := float32(math.Abs(float64(node.X-endNode.X))/(float64(node.X)+float64(endNode.X)) + math.Abs(float64(node.Y-endNode.Y))/(float64(node.Y)+float64(endNode.Y)))
+>>>>>>> 3b82242f67a2283342e6a896232e8ddde6e3dee5
 
 	return manhattanDistance
 }
@@ -47,14 +51,18 @@ func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.No
 		current := heap.Pop(openSet).(*maze.Node)
 		currentIndex := uint32(current.Y)*uint32(cols) + uint32(current.X)
 
+		// Record the node as visited
 		visitedNodesInOrder = append(visitedNodesInOrder, *current)
 
+		// Check if we reached the end node
 		if current == endNode {
 			return visitedNodesInOrder
 		}
 
+		// Mark the node as visited
 		closedSet[currentIndex] = true
 
+		// Process each neighbor of the current node
 		for _, neighbor := range getUnvisitedNeighbors(current, grid) {
 			if neighbor.Y >= rows || neighbor.X >= cols {
 				continue
@@ -68,6 +76,7 @@ func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.No
 			tentativeGScore := gScore[currentIndex] + 1
 
 			if tentativeGScore < gScore[neighborIndex] {
+				// Update the neighbor's scores
 				neighbor.PreviousNode = current
 				gScore[neighborIndex] = tentativeGScore
 				fScore[neighborIndex] = gScore[neighborIndex] + heuristic(neighbor, endNode)
@@ -75,13 +84,16 @@ func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.No
 				neighbor.F = fScore[neighborIndex]
 
 				if !contains(openSet, neighbor) {
+					// Push the neighbor into the open set if it's not already there
 					heap.Push(openSet, neighbor)
 				} else {
+					// Update the position of the neighbor in the open set
 					heap.Fix(openSet, openSet.IndexOf(neighbor))
 				}
 			}
 		}
 	}
 
+	// Return all visited nodes in order if the end node was not reached
 	return visitedNodesInOrder
 }
