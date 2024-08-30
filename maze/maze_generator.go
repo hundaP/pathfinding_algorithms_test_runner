@@ -61,12 +61,15 @@ func NewMaze(width, height int) *Maze {
 		}
 	}
 
-	startY := (height - 1) / 2
+	/*startY := (height - 1) / 2
 	endY := startY
 	if startY%2 == 0 {
 		startY++
 		endY--
-	}
+	}*/
+
+	startY := 1
+	endY := height - 2
 
 	m.CurrentCell = &m.Grid[startY][1]
 	m.Start = &m.Grid[startY][1]
@@ -129,7 +132,7 @@ func (m *Maze) generateMazeNotGlobal() {
 
 		m.CurrentCell = nextCellCell
 	} else if len(m.Stack) > 0 {
-		if rand.Float64() < 0.4 {
+		if rand.Float64() < 0.2 {
 			backtrackCell := m.Stack[rand.Intn(len(m.Stack))]
 			m.CurrentCell = backtrackCell
 		} else {

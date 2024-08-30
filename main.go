@@ -269,24 +269,26 @@ func calculateAverages(metrics map[string]*Metrics) map[string]map[string]float6
 	for algorithm, metric := range metrics {
 		averages[algorithm] = make(map[string]float64)
 		numTests := len(metric.Time)
-		for _, time := range metric.Time {
-			averages[algorithm]["time"] += time
+
+		timeSum := 0.0
+		visitedNodesSum := 0
+		visitedPercentageSum := 0.0
+		pathLengthSum := 0
+		memoryUsedSum := 0.0
+
+		for i := 0; i < numTests; i++ {
+			timeSum += metric.Time[i]
+			visitedNodesSum += metric.VisitedNodes[i]
+			visitedPercentageSum += metric.VisitedPercentage[i]
+			pathLengthSum += metric.PathLength[i]
+			memoryUsedSum += metric.MemoryUsed[i]
 		}
-		for _, visitedNodes := range metric.VisitedNodes {
-			averages[algorithm]["visitedNodes"] += float64(visitedNodes)
-		}
-		for _, visitedPercentage := range metric.VisitedPercentage {
-			averages[algorithm]["visitedPercentage"] += visitedPercentage
-		}
-		for _, pathLength := range metric.PathLength {
-			averages[algorithm]["pathLength"] += float64(pathLength)
-		}
-		for _, memoryUsed := range metric.MemoryUsed {
-			averages[algorithm]["memoryUsed"] += memoryUsed
-		}
-		for key := range averages[algorithm] {
-			averages[algorithm][key] /= float64(numTests)
-		}
+
+		averages[algorithm]["time"] = timeSum / float64(numTests)
+		averages[algorithm]["visitedNodes"] = float64(visitedNodesSum) / float64(numTests)
+		averages[algorithm]["visitedPercentage"] = visitedPercentageSum / float64(numTests)
+		averages[algorithm]["pathLength"] = float64(pathLengthSum / numTests) // Integer division
+		averages[algorithm]["memoryUsed"] = memoryUsedSum / float64(numTests)
 	}
 	return averages
 }
@@ -316,18 +318,18 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 	}
 
 	algorithmOrder := []string{"dijkstra", "astar", "bfs", "dfs", "wallFollower"}
-	dijkstraPathLength := averagesSPOff["dijkstra"]["pathLength"]
+	dijkstraPathLength := int(averagesSPOff["dijkstra"]["pathLength"])
 
 	for _, algorithm := range algorithmOrder {
 		if metrics, exists := averagesSPOn[algorithm]; exists {
 			row := []string{
 				algorithm,
 				"true",
-				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
+				fmt.Sprintf("%.2f", metrics["time"]/1e6),
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
-				fmt.Sprintf("%.0f", metrics["pathLength"]),
-				"N/A", // Not applicable for single path
+				fmt.Sprintf("%d", int(metrics["pathLength"])),
+				"N/A",
 				fmt.Sprintf("%.2f", metrics["memoryUsed"]),
 			}
 			if err := writer.Write(row); err != nil {
@@ -338,15 +340,16 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 
 	for _, algorithm := range algorithmOrder {
 		if metrics, exists := averagesSPOff[algorithm]; exists {
-			pathLengthDelta := metrics["pathLength"] - dijkstraPathLength
+			pathLength := int(metrics["pathLength"])
+			pathLengthDelta := pathLength - dijkstraPathLength
 			row := []string{
 				algorithm,
 				"false",
-				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
+				fmt.Sprintf("%.2f", metrics["time"]/1e6),
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
-				fmt.Sprintf("%.0f", metrics["pathLength"]),
-				fmt.Sprintf("%.0f", pathLengthDelta),
+				fmt.Sprintf("%d", pathLength),
+				fmt.Sprintf("%d", pathLengthDelta),
 				fmt.Sprintf("%.2f", metrics["memoryUsed"]),
 			}
 			if err := writer.Write(row); err != nil {
