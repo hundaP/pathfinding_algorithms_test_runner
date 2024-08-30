@@ -17,6 +17,14 @@ func getUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node) []*maze.Node {
 		}
 	}
 
+	// Check the right neighbor
+	if col < maxCol {
+		neighbor := &grid[row][col+1]
+		if !neighbor.IsVisited {
+			neighbors = append(neighbors, neighbor)
+		}
+	}
+
 	// Check the bottom neighbor
 	if row < maxRow {
 		neighbor := &grid[row+1][col]
@@ -28,14 +36,6 @@ func getUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node) []*maze.Node {
 	// Check the left neighbor
 	if col > 0 {
 		neighbor := &grid[row][col-1]
-		if !neighbor.IsVisited {
-			neighbors = append(neighbors, neighbor)
-		}
-	}
-
-	// Check the right neighbor
-	if col < maxCol {
-		neighbor := &grid[row][col+1]
 		if !neighbor.IsVisited {
 			neighbors = append(neighbors, neighbor)
 		}

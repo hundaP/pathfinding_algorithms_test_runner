@@ -8,86 +8,65 @@ import (
 )
 
 func heuristic(node, endNode *maze.Node) float32 {
-	manhattanDistance := float32(math.Abs(float64(node.X-endNode.X)) + math.Abs(float64(node.Y-endNode.Y)))
+	//manhattanDistance := float32(math.Abs(float64(node.X-endNode.X)) + math.Abs(float64(node.Y-endNode.Y)))
 	//euclideanDistance := float32(math.Sqrt(float64(node.X-endNode.X)*float64(node.X-endNode.X) + float64(node.Y-endNode.Y)*float64(node.Y-endNode.Y)))
 	//chebyshevDistance := float32(math.Max(float64(node.X-endNode.X), float64(node.Y-endNode.Y)))
-	//canberraDistance := float32(math.Abs(float64(node.X-endNode.X))/(float64(node.X)+float64(endNode.X)) + math.Abs(float64(node.Y-endNode.Y))/(float64(node.Y)+float64(endNode.Y)))
+	canberraDistance := float32(math.Abs(float64(node.X-endNode.X))/(float64(node.X)+float64(endNode.X)) + math.Abs(float64(node.Y-endNode.Y))/(float64(node.Y)+float64(endNode.Y)))
 
-	return manhattanDistance
+	return canberraDistance
 }
 
 func AstarAlgorithm(grid [][]maze.Node, startNode, endNode *maze.Node) []maze.Node {
-	rows, cols := uint16(len(grid)), uint16(len(grid[0]))
-	totalNodes := uint32(rows) * uint32(cols)
+	openList := &PriorityQueue{useAstar: true}
+	heap.Init(openList)
 
-	openSet := &PriorityQueue{useAstar: true}
-	heap.Init(openSet)
-
-	gScore := make([]float32, totalNodes)
-	fScore := make([]float32, totalNodes)
-	for i := range gScore {
-		gScore[i] = math.MaxFloat32
-		fScore[i] = math.MaxFloat32
-	}
-
-	startIndex := uint32(startNode.Y)*uint32(cols) + uint32(startNode.X)
-	gScore[startIndex] = 0
-	fScore[startIndex] = heuristic(startNode, endNode)
-
-	startNode.G = 0
-	startNode.F = fScore[startIndex]
-	heap.Push(openSet, startNode)
-
+	closedSet := make(map[*maze.Node]bool)
+	inOpenSet := make(map[*maze.Node]bool)
 	visitedNodesInOrder := []maze.Node{}
-	closedSet := make([]bool, totalNodes)
 
-	for openSet.Len() > 0 {
-		current := heap.Pop(openSet).(*maze.Node)
-		currentIndex := uint32(current.Y)*uint32(cols) + uint32(current.X)
+	startNode.Distance = 0
+	startNode.G = 0
+	startNode.F = heuristic(startNode, endNode)
+	heap.Push(openList, startNode)
+	inOpenSet[startNode] = true
 
-		// Record the node as visited
-		visitedNodesInOrder = append(visitedNodesInOrder, *current)
+	for openList.Len() > 0 {
+		currentNode := heap.Pop(openList).(*maze.Node)
+		delete(inOpenSet, currentNode)
 
-		// Check if we reached the end node
-		if current == endNode {
+		if currentNode == endNode {
 			return visitedNodesInOrder
 		}
 
-		// Mark the node as visited
-		closedSet[currentIndex] = true
+		closedSet[currentNode] = true
+		visitedNodesInOrder = append(visitedNodesInOrder, *currentNode)
 
-		// Process each neighbor of the current node
-		for _, neighbor := range getUnvisitedNeighbors(current, grid) {
-			if neighbor.Y >= rows || neighbor.X >= cols {
+		neighbors := getUnvisitedNeighbors(currentNode, grid)
+		for _, neighbor := range neighbors {
+			if closedSet[neighbor] || neighbor.IsWall {
 				continue
 			}
 
-			neighborIndex := uint32(neighbor.Y)*uint32(cols) + uint32(neighbor.X)
-			if neighbor.IsWall || closedSet[neighborIndex] {
-				continue
-			}
+			gScore := currentNode.G + 1
+			hScore := heuristic(neighbor, endNode)
 
-			tentativeGScore := gScore[currentIndex] + 1
-
-			if tentativeGScore < gScore[neighborIndex] {
-				// Update the neighbor's scores
-				neighbor.PreviousNode = current
-				gScore[neighborIndex] = tentativeGScore
-				fScore[neighborIndex] = gScore[neighborIndex] + heuristic(neighbor, endNode)
-				neighbor.G = tentativeGScore
-				neighbor.F = fScore[neighborIndex]
-
-				if !contains(openSet, neighbor) {
-					// Push the neighbor into the open set if it's not already there
-					heap.Push(openSet, neighbor)
-				} else {
-					// Update the position of the neighbor in the open set
-					heap.Fix(openSet, openSet.IndexOf(neighbor))
-				}
+			if !inOpenSet[neighbor] {
+				neighbor.Distance = uint32(gScore)
+				neighbor.G = gScore
+				neighbor.F = gScore + hScore
+				neighbor.PreviousNode = currentNode
+				neighbor.IsVisited = true
+				heap.Push(openList, neighbor)
+				inOpenSet[neighbor] = true
+			} else if gScore < neighbor.G {
+				neighbor.Distance = uint32(gScore)
+				neighbor.G = gScore
+				neighbor.F = gScore + hScore
+				neighbor.PreviousNode = currentNode
+				heap.Fix(openList, openList.IndexOf(neighbor))
 			}
 		}
 	}
 
-	// Return all visited nodes in order if the end node was not reached
 	return visitedNodesInOrder
 }
