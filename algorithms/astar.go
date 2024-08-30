@@ -11,6 +11,10 @@ func heuristic(node, endNode *maze.Node) float32 {
 	manhattanDistance := float32(math.Abs(float64(node.X-endNode.X)) + math.Abs(float64(node.Y-endNode.Y)))
 	//euclideanDistance := float32(math.Sqrt(float64(node.X-endNode.X)*float64(node.X-endNode.X) + float64(node.Y-endNode.Y)*float64(node.Y-endNode.Y)))
 	//chebyshevDistance := float32(math.Max(float64(node.X-endNode.X), float64(node.Y-endNode.Y)))
+
+	// Calculate Canberra distance
+   	 //canberraDistance := float32(math.Abs(float64(node.X - endNode.X)) / (float64(node.X) + float64(endNode.X)) + math.Abs(float64(node.Y - endNode.Y)) / (float64(node.Y) + float64(endNode.Y)))
+
 	return manhattanDistance
 }
 
