@@ -1,11 +1,11 @@
-Algorithm,SinglePath,Time [ms],VisitedNodes,VisitedPercentage [%],PathLength,MemoryUsed [MB]
-dijkstra,true,1035.24,1826755,91.34,17291,663.31
-astar,true,1180.56,1931022,96.55,17291,556.75
-bfs,true,659.23,1826749,91.34,17291,905.17
-dfs,true,345.67,1165235,58.26,17291,559.38
-wallFollower,true,683.60,1573978,78.70,17291,774.86
-dijkstra,false,1969.55,2087342,95.32,3376,694.54
-astar,false,1040.96,965688,44.10,3426,597.97
-bfs,false,642.15,2087313,95.32,3376,535.58
-dfs,false,330.59,975890,44.57,128175,375.95
-wallFollower,false,240.61,493685,22.54,25848,354.42
+Algorithm,SinglePath,Time [ms],VisitedNodes,VisitedPercentage [%],PathLength,D_PathLength,MemoryUsed [MB]
+dijkstra,true,957.44,1946449,97.32,31513,N/A,809.80
+astar,true,2066.90,1946304,97.32,31513,N/A,711.52
+bfs,true,671.94,1946452,97.32,31513,N/A,837.28
+dfs,true,311.82,958485,47.92,31513,N/A,608.75
+wallFollower,true,726.09,1699818,84.99,31513,N/A,721.97
+dijkstra,false,1978.53,2189120,99.97,4765,0,476.37
+astar,false,2637.13,2189070,99.96,4766,1,534.32
+bfs,false,602.74,2189121,99.97,4765,0,846.16
+dfs,false,105.07,192423,8.79,96070,91305,221.18
+wallFollower,false,393.80,911827,41.64,25000,20235,352.30
