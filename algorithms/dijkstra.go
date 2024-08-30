@@ -54,12 +54,3 @@ func updateUnvisitedNeighbors(node *maze.Node, grid [][]maze.Node, unvisitedNode
 		}
 	}
 }
-
-func contains(pq *PriorityQueue, node *maze.Node) bool {
-	for _, n := range pq.nodes {
-		if n == node {
-			return true
-		}
-	}
-	return false
-}

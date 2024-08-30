@@ -308,6 +308,7 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 		"VisitedNodes",
 		"VisitedPercentage [%]",
 		"PathLength",
+		"D_PathLength",
 		"MemoryUsed [MB]",
 	}
 	if err := writer.Write(header); err != nil {
@@ -315,19 +316,18 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 	}
 
 	algorithmOrder := []string{"dijkstra", "astar", "bfs", "dfs", "wallFollower"}
+	dijkstraPathLength := averagesSPOff["dijkstra"]["pathLength"]
 
 	for _, algorithm := range algorithmOrder {
 		if metrics, exists := averagesSPOn[algorithm]; exists {
 			row := []string{
 				algorithm,
 				"true",
-				fmt.Sprintf(
-					"%.2f",
-					metrics["time"]/1e6,
-				), // Convert to milliseconds with 2 decimal places
+				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
 				fmt.Sprintf("%.0f", metrics["pathLength"]),
+				"N/A", // Not applicable for single path
 				fmt.Sprintf("%.2f", metrics["memoryUsed"]),
 			}
 			if err := writer.Write(row); err != nil {
@@ -338,16 +338,15 @@ func writeResultsToCsv(filename string, averagesSPOn, averagesSPOff map[string]m
 
 	for _, algorithm := range algorithmOrder {
 		if metrics, exists := averagesSPOff[algorithm]; exists {
+			pathLengthDelta := metrics["pathLength"] - dijkstraPathLength
 			row := []string{
 				algorithm,
 				"false",
-				fmt.Sprintf(
-					"%.2f",
-					metrics["time"]/1e6,
-				), // Convert to milliseconds with 2 decimal places
+				fmt.Sprintf("%.2f", metrics["time"]/1e6), // Convert to milliseconds with 2 decimal places
 				fmt.Sprintf("%.0f", metrics["visitedNodes"]),
 				fmt.Sprintf("%.2f", metrics["visitedPercentage"]),
 				fmt.Sprintf("%.0f", metrics["pathLength"]),
+				fmt.Sprintf("%.0f", pathLengthDelta),
 				fmt.Sprintf("%.2f", metrics["memoryUsed"]),
 			}
 			if err := writer.Write(row); err != nil {

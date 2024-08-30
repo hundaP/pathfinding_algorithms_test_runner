@@ -61,13 +61,10 @@ func NewMaze(width, height int) *Maze {
 		}
 	}
 
-	// Set start and end cells
-	startY := height / 2
+	startY := (height - 1) / 2
+	endY := startY
 	if startY%2 == 0 {
-		startY--
-	}
-	endY := height / 2
-	if endY%2 == 0 {
+		startY++
 		endY--
 	}
 

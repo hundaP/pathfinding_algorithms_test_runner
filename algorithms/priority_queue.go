@@ -57,3 +57,12 @@ func (pq *PriorityQueue) IndexOf(node *maze.Node) int {
 	}
 	return -1
 }
+
+func contains(pq *PriorityQueue, node *maze.Node) bool {
+	for _, n := range pq.nodes {
+		if n == node {
+			return true
+		}
+	}
+	return false
+}
